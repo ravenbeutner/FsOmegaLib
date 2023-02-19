@@ -586,8 +586,8 @@ module AutomataChecks =
             let res = Util.SystemCallUtil.systemCall autfiltPath args timeout
 
             match res with 
-            | SystemCallSuccess res -> 
-                if res = "" then false else true
+            | SystemCallSuccess c -> 
+                if c = "" then false else true
                 |> Success
             | SystemCallTimeout -> 
                 Timeout
@@ -616,17 +616,14 @@ module AutomataChecks =
             let path1 = Path.Combine [|intermediateFilesPath; "aut1.hoa"|]
             let path2 = Path.Combine [|intermediateFilesPath; "aut2.hoa"|]
 
-            let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
-
             File.WriteAllText(path1, s1)
             File.WriteAllText(path2, s2)
 
-            let arg = "--included-in=" + path2 + " " + path1 + " -o " + targetPath
+            let arg = "--included-in=" + path2 + " " + path1
             let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
 
             match res with 
-            | SystemCallSuccess _ -> 
-                let c = File.ReadAllText targetPath
+            | SystemCallSuccess c -> 
                 if c = "" then false else true
                 |> Success
             | SystemCallTimeout -> 
@@ -663,8 +660,8 @@ module AutomataChecks =
             let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
 
             match res with 
-            | SystemCallSuccess res -> 
-                if res = "" then false else true
+            | SystemCallSuccess c -> 
+                if c = "" then false else true
                 |> Success
             | SystemCallTimeout -> 
                 Timeout
