@@ -1,6 +1,5 @@
 module FsOmegaLib.Conversion
 
-
 open System
 open System.IO
 
@@ -17,7 +16,7 @@ type AutomataConversionResult<'T> =
     | Timeout 
     | Fail of String
 
-exception internal AutomataLibException of String
+exception internal ConversionException of String
 
 type Effort = 
     | LOW 
@@ -50,7 +49,7 @@ module private HoaConversion =
         let numberOfAccSets =  
             match header.Acceptance with 
             | Some (numberOfAccSets: int, acc) when isGNBAAccCondition acc -> numberOfAccSets
-            | _ -> raise <| AutomataLibException $"No valid Acceptance condition for a GNBA: %A{header.Acceptance}"
+            | _ -> raise <| ConversionException $"No valid Acceptance condition for a GNBA: %A{header.Acceptance}"
 
         {
             GNBA.Skeleton = 
@@ -83,7 +82,7 @@ module private HoaConversion =
 
         match hoaAut.Header.Acceptance with 
         | Some (1, AccAtomInf (PosAcceptanceSet 0)) -> ()
-        | _ -> raise <| AutomataLibException $"No valid NBA-Acceptance condition: %A{hoaAut.Header.Acceptance}" 
+        | _ -> raise <| ConversionException $"No valid NBA-Acceptance condition: %A{hoaAut.Header.Acceptance}" 
         
         {
             NBA.Skeleton = 
@@ -120,7 +119,7 @@ module private HoaConversion =
 
         match hoaAut.Header.Acceptance with 
         | Some (_, acc) when isParityCondition acc -> ()
-        | _ -> raise <| AutomataLibException $"No valid DPA-Acceptance condition: %A{hoaAut.Header.Acceptance}" 
+        | _ -> raise <| ConversionException $"No valid DPA-Acceptance condition: %A{hoaAut.Header.Acceptance}" 
         
         {
             DPA.Skeleton = 
@@ -147,21 +146,21 @@ module private HoaConversion =
         | Ok hoa -> 
             convertHoaToGNBA hoa
             |> GNBA.mapAPs f
-        | Error err -> raise <| AutomataLibException err
+        | Error err -> raise <| ConversionException err
         
     let resultToNBA (res: String) (f : String -> 'L) = 
         match HOA.Parser.parseHoaAutomaton res with 
         | Ok hoa -> 
             convertHoaToNBA hoa
             |> NBA.mapAPs f
-        | Error err -> raise <| AutomataLibException err
+        | Error err -> raise <| ConversionException err
 
     let resultToDPA (res: String) (f : String -> 'L) = 
         match HOA.Parser.parseHoaAutomaton res with 
         | Ok hoa -> 
             convertHoaToDPA hoa
             |> DPA.mapAPs f
-        | Error err -> raise <| AutomataLibException err
+        | Error err -> raise <| ConversionException err
             
 
 module AutomatonConversions = 
@@ -197,7 +196,7 @@ module AutomatonConversions =
                 Fail err
         with 
         | _ when debug -> reraise() 
-        | AutomataLibException err -> 
+        | ConversionException err -> 
             Fail (err)
         | e -> 
             Fail ($"%s{e.Message}")
@@ -234,7 +233,7 @@ module AutomatonConversions =
                 Fail (err)
         with 
         | _ when debug -> reraise() 
-        | AutomataLibException err -> 
+        | ConversionException err -> 
             Fail (err)
         | e -> 
             Fail ($"%s{e.Message}")
@@ -270,7 +269,7 @@ module AutomatonConversions =
                 Fail (err)
         with
         | _ when debug -> reraise() 
-        | AutomataLibException err -> 
+        | ConversionException err -> 
             Fail (err)
         | e -> 
             Fail ($"%s{e.Message}")
@@ -309,7 +308,7 @@ module AutomataOperations =
                 Fail err
         with
         | _ when debug -> reraise() 
-        | AutomataLibException err -> 
+        | ConversionException err -> 
             Fail (err)
         | e -> 
             Fail ($"%s{e.Message}")
@@ -347,7 +346,7 @@ module AutomataOperations =
 
         with
         | _ when debug -> reraise() 
-        | AutomataLibException err -> 
+        | ConversionException err -> 
             Fail (err)
         | e -> 
             Fail ($"%s{e.Message}")
@@ -388,7 +387,7 @@ module AutomataOperations =
                 Fail err
         with
         | _ when debug -> reraise() 
-        | AutomataLibException err -> 
+        | ConversionException err -> 
             Fail (err)
         | e -> 
             Fail ($"%s{e.Message}")
@@ -429,7 +428,7 @@ module AutomataOperations =
                 Fail err
         with
         | _ when debug -> reraise() 
-        | AutomataLibException err -> 
+        | ConversionException err -> 
             Fail (err)
         | e -> 
             Fail ($"%s{e.Message}")
@@ -469,7 +468,7 @@ module LTLConversion =
                 Fail err
         with
         | _ when debug -> reraise() 
-        | AutomataLibException err -> 
+        | ConversionException err -> 
             Fail (err)
         | e -> 
             Fail ($"%s{e.Message}")
@@ -507,7 +506,7 @@ module LTLConversion =
                 Fail err
         with
         | _ when debug -> reraise() 
-        | AutomataLibException err -> 
+        | ConversionException err -> 
             Fail (err)
         | e -> 
             Fail ($"%s{e.Message}")
@@ -545,7 +544,7 @@ module LTLConversion =
                 Fail err
         with
         | _ when debug -> reraise() 
-        | AutomataLibException err -> 
+        | ConversionException err -> 
             Fail (err)
         | e -> 
             Fail ($"%s{e.Message}")
@@ -579,7 +578,7 @@ module AutomataChecks =
                 Fail err
         with
         | _ when debug -> reraise() 
-        | AutomataLibException err -> 
+        | ConversionException err -> 
             Fail (err)
         | e -> 
             Fail ($"%s{e.Message}")
@@ -619,7 +618,7 @@ module AutomataChecks =
                 Fail err
         with
         | _ when debug -> reraise() 
-        | AutomataLibException err -> 
+        | ConversionException err -> 
             Fail (err)
         | e -> 
             Fail ($"%s{e.Message}")
@@ -656,7 +655,7 @@ module AutomataChecks =
                 Fail err
         with
         | _ when debug -> reraise() 
-        | AutomataLibException err -> 
+        | ConversionException err -> 
             Fail (err)
         | e -> 
             Fail ($"%s{e.Message}")

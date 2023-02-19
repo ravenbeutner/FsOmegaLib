@@ -43,41 +43,46 @@ type HoaAutomaton =
 module Parser =
     open FParsec
     
-    let rec private multilineCommentParser o=
-        let ign x = charsTillString x false System.Int32.MaxValue |>> ignore
+    
+    let rec private multilineCommentParser =
         let openMultilineCommentStr = "/*"
         let closeMultilineCommentStr = "*/"
-        (between
+        between
             (pstring openMultilineCommentStr)
             (pstring closeMultilineCommentStr)
-            (attempt (ign openMultilineCommentStr >>. multilineCommentParser >>. ign closeMultilineCommentStr) <|> 
-            ign closeMultilineCommentStr) <|o)
+            (charsTillString closeMultilineCommentStr false System.Int32.MaxValue)
+        |>> ignore
+    
+    let private spacesNoNewline = manyChars (satisfy (fun x -> x = ' ' || x = '\t')) |>> ignore
 
-    let private whitespace =
-        multilineCommentParser <|>
-        spaces
+    let private ws =
+        spaces >>. many (multilineCommentParser .>> spaces)
+        |>> ignore
 
-    let private ws = skipMany whitespace
+
+    let private wsNoNewline =
+        spacesNoNewline >>. many (multilineCommentParser .>> spacesNoNewline)
+        |>> ignore
     
     let private headerParser =
         let headerLineParser (header : AutomatonHeader) = 
 
             let hoaParser = 
-                skipString "HOA:" >>. ws >>. many1Chars (satisfy (fun x -> x <> ' ' && x <> '\n'))
+                skipString "HOA:" >>. wsNoNewline >>. many1Chars (satisfy (fun x -> x <> ' ' && x <> '\n'))
                 |>> (fun x -> {header with HoaVersion = Some x})
 
             let nameParser  = 
                 let escapedStringParser = 
                     skipChar '\"' >>. many1Chars (satisfy (fun c -> c <> '\"')) .>> skipChar '\"'
 
-                skipString "name:" >>. ws >>. escapedStringParser
+                skipString "name:" >>. wsNoNewline >>. escapedStringParser
                 |>> fun x -> {header with Name = Some x}
 
             let toolParser  = 
                 let escapedStringParser = 
                     skipChar '\"' >>. many1Chars (satisfy (fun c -> c <> '\"')) .>> skipChar '\"'
 
-                skipString "tool:" >>. ws >>. many1 (escapedStringParser .>> ws)
+                skipString "tool:" >>. wsNoNewline >>. many1 (escapedStringParser .>> wsNoNewline)
                 |>> fun x -> {header with Tool = Some x}
 
 
@@ -85,48 +90,48 @@ module Parser =
                 let escapedStringParser = 
                     skipChar '\"' >>. many1Chars (satisfy (fun c -> c <> '\"')) .>> skipChar '\"'
 
-                skipString "AP:" >>. ws >>.
+                skipString "AP:" >>. wsNoNewline >>.
                     pipe2 
                         pint32 
-                        (ws >>. many (escapedStringParser .>> ws))
+                        (wsNoNewline >>. many (escapedStringParser .>> wsNoNewline))
                         (fun _ y -> {header with APs = Some y})
 
             let statesParser  = 
-                skipString "States:" >>. ws >>. pint32
+                skipString "States:" >>. wsNoNewline >>. pint32
                 |>> fun x -> {header with States = Some x}
 
             let startParser = 
-                skipString "Start:" >>. ws >>. pint32
+                skipString "Start:" >>. wsNoNewline >>. pint32
                 |>> fun x -> {header with Start = x::header.Start}
 
 
             let propertiesParser = 
-                skipString "properties:" >>. ws >>. many1 (many1Chars (satisfy (fun x -> x <> ' ' && x <> '\n')) .>> ws)
+                skipString "properties:" >>. wsNoNewline >>. many1 (many1Chars (satisfy (fun x -> x <> ' ' && x <> '\n')) .>> wsNoNewline)
                 |>> fun x -> {header with Properties = x @ header.Properties}
                 
 
             let accNameParser = 
-                skipString "acc-name:" >>. ws >>. many1 (many1Chars (satisfy (fun x -> x <> ' ' && x <> '\n')) .>> ws)
+                skipString "acc-name:" >>. wsNoNewline >>. many1 (many1Chars (satisfy (fun x -> x <> ' ' && x <> '\n')) .>> wsNoNewline)
                 |>> fun x -> {header with AcceptanceName = Util.combineStringsWithSeperator " " x |> Some}
 
             let accParser = 
                 let accParser, accParserRef = createParserForwardedToRef()
 
                 let literalParser = 
-                    (skipChar '!' >>. ws >>. pint32 |>> AcceptanceSetAtom.NegAcceptanceSet)
+                    (skipChar '!' >>. wsNoNewline >>. pint32 |>> AcceptanceSetAtom.NegAcceptanceSet)
                     <|>
                     (pint32 |>> AcceptanceSetAtom.PosAcceptanceSet)
 
                 let infParser = 
-                    skipString "Inf" >>. ws .>> skipChar '(' >>. ws >>. literalParser .>> ws .>> pchar ')'
+                    skipString "Inf" >>. wsNoNewline .>> skipChar '(' >>. wsNoNewline >>. literalParser .>> wsNoNewline .>> pchar ')'
                     |>> AccAtomInf
 
                 let finParser = 
-                    skipString "Fin" >>. ws .>> skipChar '(' >>. ws >>. literalParser .>> ws .>> pchar ')'
+                    skipString "Fin" >>. wsNoNewline .>> skipChar '(' >>. wsNoNewline >>. literalParser .>> wsNoNewline .>> pchar ')'
                     |>> AccAtomFin
 
                 let parParser = 
-                    skipChar '(' >>. accParser .>> ws .>> skipChar ')'
+                    skipChar '(' >>. accParser .>> wsNoNewline .>> skipChar ')'
 
                 let falseParser = 
                     charReturn 'f' AccFalse
@@ -138,26 +143,26 @@ module Parser =
                 
                 let addInfixOperator str precedence associativity f =
                     opp.AddOperator(
-                        InfixOperator(str, ws, precedence, associativity, f)
+                        InfixOperator(str, wsNoNewline, precedence, associativity, f)
                     )
 
                 addInfixOperator "&" 20 Associativity.Left (fun e1 e2 -> AccAnd(e1, e2))
                 addInfixOperator "|" 10 Associativity.Left (fun e1 e2 -> AccOr(e1, e2))
 
                 let innerParser = 
-                    ws >>. choice [
+                    wsNoNewline >>. choice [
                         falseParser
                         trueParser
                         infParser
                         finParser
                         parParser
-                    ] .>> ws
+                    ] .>> wsNoNewline
 
                 opp.TermParser <- innerParser
                 
                 do accParserRef.Value <- opp.ExpressionParser
 
-                skipString "Acceptance:" >>. ws >>. pint32 .>>. accParser
+                skipString "Acceptance:" >>. wsNoNewline >>. pint32 .>>. accParser
                 |>> fun (x, y) -> {header with Acceptance = Some (x, y)}
 
             choice [
