@@ -50,7 +50,8 @@ module SystemCallUtil =
         | SystemCallTimeout
 
     let systemCall cmd arg timeout =
-        let p = new System.Diagnostics.Process();
+        let p = new System.Diagnostics.Process()
+        
         p.StartInfo.RedirectStandardOutput <- true
         p.StartInfo.RedirectStandardError <- true
         p.StartInfo.UseShellExecute <- false

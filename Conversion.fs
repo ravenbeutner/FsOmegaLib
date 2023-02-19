@@ -193,8 +193,8 @@ module AutomatonConversions =
 
             let s = aut.ToHoaString string (fun x -> dict.[x])
 
-            let path = Path.Combine [|intermediateFilesPath; "/aut1.hoa"|]
-            let targetPath = Path.Combine [|intermediateFilesPath; "/autRes.hoa"|]
+            let path = Path.Combine [|intermediateFilesPath; "aut1.hoa"|]
+            let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
         
             File.WriteAllText(path, s)
 
@@ -230,8 +230,8 @@ module AutomatonConversions =
 
             let s = aut.ToHoaString string (fun x -> dict.[x])
 
-            let path = Path.Combine [|intermediateFilesPath; "/aut1.hoa"|]
-            let targetPath = Path.Combine [|intermediateFilesPath; "/autRes.hoa"|]
+            let path = Path.Combine [|intermediateFilesPath; "aut1.hoa"|]
+            let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
 
             File.WriteAllText(path, s)
 
@@ -267,8 +267,8 @@ module AutomatonConversions =
 
             let s = aut.ToHoaString string (fun x -> dict.[x])
 
-            let path = Path.Combine [|intermediateFilesPath; "/aut1.hoa"|]
-            let targetPath = Path.Combine [|intermediateFilesPath; "/autRes.hoa"|]
+            let path = Path.Combine [|intermediateFilesPath; "aut1.hoa"|]
+            let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
 
             File.WriteAllText(path, s)
 
@@ -306,11 +306,11 @@ module AutomataOperations =
             let s = aut.ToHoaString string (fun x -> dict.[x])
 
             let path = Path.Combine [|intermediateFilesPath; "aut1.hoa"|]
-            let targetPath = Path.Combine [|intermediateFilesPath; "/autRes.hoa"|]
+            let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
 
             File.WriteAllText(path, s)
 
-            let arg = "--small --" + Effort.asString ef + "-S --gba --complement " + path + " -o " + targetPath
+            let arg = "--small --" + Effort.asString ef + " -S --gba --complement " + path + " -o " + targetPath
 
             let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
             
@@ -343,11 +343,11 @@ module AutomataOperations =
             let s = aut.ToHoaString string (fun x -> dict.[x])
 
             let path = Path.Combine [|intermediateFilesPath; "aut1.hoa"|]
-            let targetPath = Path.Combine [|intermediateFilesPath; "/autRes.hoa"|]
+            let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
 
             File.WriteAllText(path, s)
 
-            let arg = "--small --" + Effort.asString ef + "-S -B --complement " + path + " -o " + targetPath
+            let arg = "--small --" + Effort.asString ef + " -S -B --complement " + path + " -o " + targetPath
 
             let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
             
