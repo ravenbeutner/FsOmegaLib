@@ -291,6 +291,87 @@ module AutomatonConversions =
         | e -> 
             Fail ($"%s{e.Message}")
 
+module AutomatonFromString = 
+    let convertHoaStringToGNBA (debug : bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) timeout (autString : String) = 
+        try 
+            let path = Path.Combine [|intermediateFilesPath; "aut1.hoa"|]
+            let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
+        
+            File.WriteAllText(path, autString)
+
+            let arg = "--small --" + Effort.asString ef + " -S --gba " + path + " -o " + targetPath
+
+            let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
+
+            match res with 
+            | SystemCallSuccess _ -> 
+                let c = File.ReadAllText(targetPath)
+                HoaConversion.resultToGNBA c id
+                |> Success
+            | SystemCallTimeout -> 
+                Timeout
+            | SystemCallError err -> 
+                Fail err
+        with 
+        | _ when debug -> reraise() 
+        | ConversionException err -> 
+            Fail (err)
+        | e -> 
+            Fail ($"%s{e.Message}")
+
+    let convertHoaStringToNBA (debug: bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) timeout (autString : String) = 
+        try
+            let path = Path.Combine [|intermediateFilesPath; "aut1.hoa"|]
+            let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
+
+            File.WriteAllText(path, autString)
+
+            let arg = "--small --" + Effort.asString ef + " -S -B " + path + " -o " + targetPath
+
+            let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
+
+            match res with 
+            | SystemCallSuccess _ -> 
+                let c = File.ReadAllText(targetPath)
+                HoaConversion.resultToNBA c id
+                |> Success
+            | SystemCallTimeout -> 
+                Timeout
+            | SystemCallError err -> 
+                Fail (err)
+        with 
+        | _ when debug -> reraise() 
+        | ConversionException err -> 
+            Fail (err)
+        | e -> 
+            Fail ($"%s{e.Message}")
+
+    let convertHoaStringToDPA (debug: bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) timeout (autString : String) = 
+        try 
+            let path = Path.Combine [|intermediateFilesPath; "aut1.hoa"|]
+            let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
+
+            File.WriteAllText(path, autString)
+
+            let arg = "--small --" + Effort.asString ef + " -D -S -p\"max even\" " + path + " -o " + targetPath
+            let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
+
+            match res with 
+            | SystemCallSuccess _ -> 
+                let c = File.ReadAllText(targetPath)
+                HoaConversion.resultToDPA c id
+                |> Success
+            | SystemCallTimeout -> 
+                Timeout
+            | SystemCallError err -> 
+                Fail (err)
+        with
+        | _ when debug -> reraise() 
+        | ConversionException err -> 
+            Fail (err)
+        | e -> 
+            Fail ($"%s{e.Message}")
+
    
 module AutomataOperations = 
     let complementToGNBA debug (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) timeout (aut : AbstractAutomaton<int, 'L>) = 
