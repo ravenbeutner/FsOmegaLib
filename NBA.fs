@@ -24,6 +24,8 @@ open SAT
 open AutomatonSkeleton
 open AbstractAutomaton
 
+exception private NotWellFormedException of String
+
 type NBA<'T, 'L when 'T: comparison and 'L : comparison> = 
     {
         Skeleton : AutomatonSkeleton<'T, 'L>
@@ -43,6 +45,29 @@ type NBA<'T, 'L when 'T: comparison and 'L : comparison> =
     interface AbstractAutomaton<'T, 'L> with
         member this.Skeleton = 
             this.Skeleton
+
+        member this.FindError() = 
+            try 
+                match AutomatonSkeleton.findError this.Skeleton with 
+                | Some err -> 
+                    raise <| NotWellFormedException err 
+                | None -> ()
+
+                this.InitialStates
+                |> Seq.iter (fun x -> 
+                    if this.Skeleton.States.Contains x |> not then 
+                        raise <| NotWellFormedException $"State $A{x} is initial but not contained in the set of states"
+                )
+
+                this.AcceptingStates
+                |> Seq.iter (fun x -> 
+                    if this.Skeleton.States.Contains x |> not then 
+                        raise <| NotWellFormedException $"State $A{x} is accepting but not contained in the set of states"
+                )
+
+                None 
+            with 
+            | NotWellFormedException msg -> Some msg
 
         member this.ToHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) =
             let s = new StringWriter() 
@@ -151,6 +176,9 @@ module NBA =
 
     let toHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) (nba : NBA<'T, 'L>) = 
         (nba :> AbstractAutomaton<'T, 'L>).ToHoaString stateStringer alphStringer
+
+    let findError (nba : NBA<'T, 'L>) = 
+        (nba :> AbstractAutomaton<'T, 'L>).FindError()
 
     let bringToSameAPs (autList : list<NBA<'T, 'L>>) =
         autList

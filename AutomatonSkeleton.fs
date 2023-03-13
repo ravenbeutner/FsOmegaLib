@@ -20,6 +20,8 @@ module FsOmegaLib.AutomatonSkeleton
 open System 
 open SAT 
 
+exception private NotWellFormedException of String
+
 type AutomatonSkeleton<'T, 'L when 'T: comparison and 'L : comparison> = 
     {
         States : Set<'T>
@@ -46,6 +48,30 @@ module AutomatonSkeleton =
             APs = skeleton.APs |> List.map f
             Edges = skeleton.Edges
         }
+
+    let findError (skeleton : AutomatonSkeleton<'T, 'L>) = 
+        try 
+            skeleton.States
+            |> Seq.iter (fun x -> 
+                if skeleton.Edges.ContainsKey x |> not then 
+                    raise <| NotWellFormedException $"No edges defined for state $A{x}"
+
+                skeleton.Edges.[x]
+                |> List.iter (fun (g, t) -> 
+                    if skeleton.States.Contains t |> not then 
+                        raise <| NotWellFormedException $"State $A{t} is a successor of states %A{x} but not defined as a state"
+
+                    g 
+                    |> DNF.atoms
+                    |> Set.iter (fun i -> 
+                        if i >= skeleton.APs.Length || i < 0 then 
+                            raise <| NotWellFormedException $"A transition guard from state $A{x} to %A{t} indexed to AP-index %i{i} which is out of range"
+                        )
+                    )
+            )
+            None 
+        with 
+        | NotWellFormedException msg -> Some msg
  
     let bringSkeletonsToSameAps (autList : list<AutomatonSkeleton<'T, 'L>>) =
         let combinedAps = 

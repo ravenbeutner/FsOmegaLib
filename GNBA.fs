@@ -24,6 +24,8 @@ open SAT
 open AutomatonSkeleton
 open AbstractAutomaton
 
+exception private NotWellFormedException of String
+
 type GNBA<'T, 'L when 'T: comparison and 'L : comparison> = 
     {
         Skeleton : AutomatonSkeleton<'T, 'L>
@@ -44,6 +46,35 @@ type GNBA<'T, 'L when 'T: comparison and 'L : comparison> =
     interface AbstractAutomaton<'T, 'L> with
         member this.Skeleton = 
             this.Skeleton
+
+        member this.FindError() = 
+            try 
+                match AutomatonSkeleton.findError this.Skeleton with 
+                | Some err -> 
+                    raise <| NotWellFormedException err 
+                | None -> ()
+
+                this.InitialStates
+                |> Seq.iter (fun x -> 
+                    if this.Skeleton.States.Contains x |> not then 
+                        raise <| NotWellFormedException $"State $A{x} is initial but not contained in the set of states"
+                )
+
+                this.Skeleton.States
+                |> Seq.iter (fun x -> 
+                    if this.AcceptanceSets.ContainsKey x |> not then 
+                        raise <| NotWellFormedException $"No acc-sets defined for state $A{x}"
+
+                    this.AcceptanceSets.[x]
+                    |> Set.iter (fun i -> 
+                        if i >= this.NumberOfAcceptingSets || i < 0 then 
+                            raise <| NotWellFormedException $"The accptance set %i{i} is used in state %A{x} but is out of range"
+                        )
+                )
+                None 
+            with 
+            | NotWellFormedException msg -> Some msg
+
 
         member this.ToHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) = 
             let s = new StringWriter() 
@@ -185,6 +216,9 @@ module GNBA =
 
     let toHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) (gnba : GNBA<'T, 'L>) = 
         (gnba :> AbstractAutomaton<'T, 'L>).ToHoaString stateStringer alphStringer
+
+    let findError (gnba : GNBA<'T, 'L>) = 
+        (gnba :> AbstractAutomaton<'T, 'L>).FindError()
 
     let bringToSameAPs (autList : list<GNBA<'T, 'L>>) =
         autList

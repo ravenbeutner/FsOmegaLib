@@ -24,6 +24,7 @@ open SAT
 open AutomatonSkeleton
 open AbstractAutomaton
 
+exception private NotWellFormedException of String
 type DPA<'T, 'L when 'T: comparison and 'L : comparison> = 
     {
         Skeleton : AutomatonSkeleton<'T, 'L>
@@ -43,6 +44,26 @@ type DPA<'T, 'L when 'T: comparison and 'L : comparison> =
     interface AbstractAutomaton<'T, 'L> with
         member this.Skeleton = 
             this.Skeleton
+
+        member this.FindError() = 
+            try 
+                match AutomatonSkeleton.findError this.Skeleton with 
+                | Some err -> 
+                    raise <| NotWellFormedException err 
+                | None -> ()
+
+                if this.Skeleton.States.Contains this.InitialState |> not then 
+                    raise <| NotWellFormedException $"The initial state is not contained in the set of states"
+                
+                this.Skeleton.States
+                |> Seq.iter (fun x -> 
+                    if this.Color.ContainsKey x |> not then 
+                        raise <| NotWellFormedException $"No color defined for state $A{x}"
+                )
+                
+                None 
+            with 
+            | NotWellFormedException msg -> Some msg
 
         member this.ToHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) =
             let s = new StringWriter() 
@@ -155,6 +176,9 @@ module DPA =
 
     let toHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) (dpa : DPA<'T, 'L>) = 
         (dpa :> AbstractAutomaton<'T, 'L>).ToHoaString stateStringer alphStringer
+
+    let findError (dpa : DPA<'T, 'L>) = 
+        (dpa :> AbstractAutomaton<'T, 'L>).FindError()
 
     let bringToSameAPs (autList : list<DPA<'T, 'L>>) =
         autList
