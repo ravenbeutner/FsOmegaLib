@@ -111,9 +111,13 @@ module Parser =
 
         let trueParser = 
             stringReturn "1" True
+            <|>
+            stringReturn "true" True
 
         let falseParser = 
             stringReturn "0" False 
+            <|>
+            stringReturn "false" True
 
         let variableParser = 
             atomParser
