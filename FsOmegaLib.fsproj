@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Util.fs" />
+    <Compile Include="JSON.fs" />
     <Compile Include="SAT.fs" />
     <Compile Include="HOA.fs" />
     <Compile Include="AutomatonSkeleton.fs" />
