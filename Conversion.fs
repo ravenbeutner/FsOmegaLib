@@ -272,7 +272,7 @@ module AutomatonConversions =
 
             File.WriteAllText(path, s)
 
-            let arg = "--small --" + Effort.asString ef + " -D -S -p\"max even\" " + path + " -o " + targetPath
+            let arg = "--small --" + Effort.asString ef + " -D -C -S -p\"max even\" " + path + " -o " + targetPath
             let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
 
             match res with 
@@ -353,7 +353,7 @@ module AutomatonFromString =
 
             File.WriteAllText(path, autString)
 
-            let arg = "--small --" + Effort.asString ef + " -D -S -p\"max even\" " + path + " -o " + targetPath
+            let arg = "--small --" + Effort.asString ef + " -D -C -S -p\"max even\" " + path + " -o " + targetPath
             let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
 
             match res with 
@@ -627,7 +627,7 @@ module LTLConversion =
 
             let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
 
-            let args = "-S -D -p\"max even\" \"" + ltlAsString + "\"" + " -o " + targetPath
+            let args = "-S -C -D -p\"max even\" \"" + ltlAsString + "\"" + " -o " + targetPath
 
             let res = Util.SystemCallUtil.systemCall ltl2tgbaPath args timeout
 
