@@ -647,6 +647,120 @@ module LTLConversion =
         | e -> 
             Fail ($"%s{e.Message}")
 
+    let convertLTLtoGNBAOwl debug (intermediateFilesPath : String) (owlPath : String) timeout (ltl : LTL<'L>)  = 
+        try 
+            let dict, revDict = 
+                ltl 
+                |> LTL.allAtoms
+                |> Set.toList
+                |> List.mapi (fun i x -> 
+                    let a = "l" + string i
+                    (x, a), (a, x))
+                |> List.unzip
+                |> fun (x, y) -> Map.ofList x, Map.ofList y
+            
+            let ltlAsString = 
+                ltl
+                |> LTL.printInSpotFormat (fun x -> "\"" + dict.[x] + "\"")
+
+            let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
+
+            let args = "ltl2ngba --state-acceptance -f \"" + ltlAsString + "\"" + " -o " + targetPath
+
+            let res = Util.SystemCallUtil.systemCall owlPath args timeout
+
+            match res with 
+            | SystemCallSuccess _ -> 
+                let c = File.ReadAllText(targetPath)
+                HoaConversion.resultToGNBA c (fun x -> revDict.[x]) 
+                |> Success
+            | SystemCallTimeout -> 
+                Timeout
+            | SystemCallError err -> 
+                Fail err
+        with
+        | _ when debug -> reraise() 
+        | ConversionException err -> 
+            Fail (err)
+        | e -> 
+            Fail ($"%s{e.Message}")
+
+    let convertLTLtoNBAOwl debug (intermediateFilesPath : String) (owlPath : String) timeout (ltl : LTL<'L>)  = 
+        try 
+            let dict, revDict = 
+                ltl 
+                |> LTL.allAtoms
+                |> Set.toList
+                |> List.mapi (fun i x -> 
+                    let a = "l" + string i
+                    (x, a), (a, x))
+                |> List.unzip
+                |> fun (x, y) -> Map.ofList x, Map.ofList y
+            
+            let ltlAsString = 
+                ltl
+                |> LTL.printInSpotFormat (fun x -> "\"" + dict.[x] + "\"")
+
+            let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
+
+            let args = "ltl2nba --state-acceptance -f \"" + ltlAsString + "\"" + " -o " + targetPath
+
+            let res = Util.SystemCallUtil.systemCall owlPath args timeout
+
+            match res with 
+            | SystemCallSuccess _ -> 
+                let c = File.ReadAllText(targetPath)
+                HoaConversion.resultToNBA c (fun x -> revDict.[x]) 
+                |> Success
+            | SystemCallTimeout -> 
+                Timeout
+            | SystemCallError err -> 
+                Fail err
+        with
+        | _ when debug -> reraise() 
+        | ConversionException err -> 
+            Fail (err)
+        | e -> 
+            Fail ($"%s{e.Message}")
+
+    let convertLTLtoDPAOwl debug (intermediateFilesPath : String) (owlPath : String) timeout (ltl : LTL<'L>)  = 
+        try 
+            let dict, revDict = 
+                ltl 
+                |> LTL.allAtoms
+                |> Set.toList
+                |> List.mapi (fun i x -> 
+                    let a = "l" + string i
+                    (x, a), (a, x))
+                |> List.unzip
+                |> fun (x, y) -> Map.ofList x, Map.ofList y
+            
+            let ltlAsString = 
+                ltl
+                |> LTL.printInSpotFormat (fun x -> "\"" + dict.[x] + "\"")
+
+            let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
+
+            let args = "ltl2dpa --complete --state-acceptance -f \"" + ltlAsString + "\"" + " -o " + targetPath
+
+            let res = Util.SystemCallUtil.systemCall owlPath args timeout
+
+            match res with 
+            | SystemCallSuccess _ -> 
+                let c = File.ReadAllText(targetPath)
+                HoaConversion.resultToDPA c (fun x -> revDict.[x]) 
+                |> Success  
+            | SystemCallTimeout -> 
+                Timeout
+            | SystemCallError err -> 
+                Fail err
+        with
+        | _ when debug -> reraise() 
+        | ConversionException err -> 
+            Fail (err)
+        | e -> 
+            Fail ($"%s{e.Message}")
+
 module AutomataChecks = 
     let checkEmptiness debug (intermediateFilesPath : String) (autfiltPath : String) timeout (aut : AbstractAutomaton<int, 'L>) = 
         try
