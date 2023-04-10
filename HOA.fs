@@ -217,7 +217,10 @@ module Parser =
         let edgeParser = 
             let guardParser = 
                 pchar '[' >>. ws >>. 
-                (attempt (SAT.Parser.dnfParser pint32)) <|> (SAT.Parser.booleanExpressionParser pint32 |>> fun x -> SAT.convertBooleanExpressionToDNF x)
+                choice [
+                    (attempt (SAT.Parser.dnfParser pint32));
+                    (SAT.Parser.booleanExpressionParser pint32 |>> fun x -> SAT.convertBooleanExpressionToDNF x)
+                ]
                 .>> ws .>> pchar ']'
 
             pipe2 
