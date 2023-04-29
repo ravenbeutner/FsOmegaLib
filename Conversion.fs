@@ -662,7 +662,7 @@ module LTLConversion =
             Fail ($"%s{e.Message}")
 
 module AutomataChecks = 
-    let checkEmptiness debug (intermediateFilesPath : String) (autfiltPath : String) (aut : AbstractAutomaton<int, 'L>) = 
+    let isEmpty debug (intermediateFilesPath : String) (autfiltPath : String) (aut : AbstractAutomaton<int, 'L>) = 
         try
             let dict = 
                 aut.Skeleton.APs
@@ -697,7 +697,7 @@ module AutomataChecks =
         | e -> 
             Fail ($"%s{e.Message}")
 
-    let checkContainment debug (intermediateFilesPath : String) (autfiltPath : String) (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>)  = 
+    let isContained debug (intermediateFilesPath : String) (autfiltPath : String) (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>)  = 
         try 
             let dict = 
                 aut1.Skeleton.APs @ aut2.Skeleton.APs
@@ -735,7 +735,7 @@ module AutomataChecks =
         | e -> 
             Fail ($"%s{e.Message}")
 
-    let checkEquivalence debug (intermediateFilesPath : String) (autfiltPath : String) (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>) = 
+    let isEquivalent debug (intermediateFilesPath : String) (autfiltPath : String) (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>) = 
         try
             let dict =
                 aut1.Skeleton.APs @ aut2.Skeleton.APs
