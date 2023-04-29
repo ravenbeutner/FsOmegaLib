@@ -30,7 +30,6 @@ open LTL
 
 type AutomataConversionResult<'T> =
     | Success of 'T 
-    | Timeout 
     | Fail of String
 
 exception internal ConversionException of String
@@ -181,7 +180,7 @@ module private HoaConversion =
             
 
 module AutomatonConversions = 
-    let convertToGNBA (debug : bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) timeout (aut : AbstractAutomaton<int, 'L>) = 
+    let convertToGNBA (debug : bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (aut : AbstractAutomaton<int, 'L>) = 
         try 
             let dict, revDict = 
                 aut.Skeleton.APs
@@ -200,17 +199,19 @@ module AutomatonConversions =
 
             let arg = "--small --" + Effort.asString ef + " -S --gba " + path + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
+            let res = Util.SystemCallUtil.systemCall autfiltPath arg
 
             match res with 
-            | SystemCallSuccess _ -> 
+            | {ExitCode = 0; Stderr = ""} -> 
                 let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToGNBA c (fun x -> revDict.[x]) 
+                HoaConversion.resultToGNBA c (fun x -> revDict.[x])
                 |> Success
-            | SystemCallTimeout -> 
-                Timeout
-            | SystemCallError err -> 
-                Fail err
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 then 
+                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
+
         with 
         | _ when debug -> reraise() 
         | ConversionException err -> 
@@ -218,7 +219,7 @@ module AutomatonConversions =
         | e -> 
             Fail ($"%s{e.Message}")
 
-    let convertToNBA (debug: bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) timeout (aut : AbstractAutomaton<int, 'L>) = 
+    let convertToNBA (debug: bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (aut : AbstractAutomaton<int, 'L>) = 
         try
             let dict, revDict = 
                 aut.Skeleton.APs
@@ -237,17 +238,18 @@ module AutomatonConversions =
 
             let arg = "--small --" + Effort.asString ef + " -S -B " + path + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
+            let res = Util.SystemCallUtil.systemCall autfiltPath arg
 
             match res with 
-            | SystemCallSuccess _ -> 
+            | {ExitCode = 0; Stderr = ""} -> 
                 let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToNBA c (fun x -> revDict.[x]) 
+                HoaConversion.resultToNBA c (fun x -> revDict.[x])
                 |> Success
-            | SystemCallTimeout -> 
-                Timeout
-            | SystemCallError err -> 
-                Fail (err)
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 then 
+                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
         with 
         | _ when debug -> reraise() 
         | ConversionException err -> 
@@ -255,7 +257,7 @@ module AutomatonConversions =
         | e -> 
             Fail ($"%s{e.Message}")
 
-    let convertToDPA (debug: bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) timeout (aut : AbstractAutomaton<int, 'L>) = 
+    let convertToDPA (debug: bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (aut : AbstractAutomaton<int, 'L>) = 
         try 
             let dict, revDict = 
                 aut.Skeleton.APs
@@ -273,17 +275,18 @@ module AutomatonConversions =
             File.WriteAllText(path, s)
 
             let arg = "--small --" + Effort.asString ef + " -D -C -S -p\"max even\" " + path + " -o " + targetPath
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
+            let res = Util.SystemCallUtil.systemCall autfiltPath arg
 
             match res with 
-            | SystemCallSuccess _ -> 
+            | {ExitCode = 0; Stderr = ""} -> 
                 let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToDPA c (fun x -> revDict.[x]) 
+                HoaConversion.resultToDPA c (fun x -> revDict.[x])
                 |> Success
-            | SystemCallTimeout -> 
-                Timeout
-            | SystemCallError err -> 
-                Fail (err)
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 then 
+                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
@@ -292,7 +295,7 @@ module AutomatonConversions =
             Fail ($"%s{e.Message}")
 
 module AutomatonFromString = 
-    let convertHoaStringToGNBA (debug : bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) timeout (autString : String) = 
+    let convertHoaStringToGNBA (debug : bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (autString : String) = 
         try 
             let path = Path.Combine [|intermediateFilesPath; "aut1.hoa"|]
             let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
@@ -301,17 +304,19 @@ module AutomatonFromString =
 
             let arg = "--small --" + Effort.asString ef + " -S --gba " + path + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
+            let res = Util.SystemCallUtil.systemCall autfiltPath arg
 
             match res with 
-            | SystemCallSuccess _ -> 
+            | {ExitCode = 0; Stderr = ""} -> 
                 let c = File.ReadAllText(targetPath)
                 HoaConversion.resultToGNBA c id
                 |> Success
-            | SystemCallTimeout -> 
-                Timeout
-            | SystemCallError err -> 
-                Fail err
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 then 
+                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
+
         with 
         | _ when debug -> reraise() 
         | ConversionException err -> 
@@ -319,7 +324,7 @@ module AutomatonFromString =
         | e -> 
             Fail ($"%s{e.Message}")
 
-    let convertHoaStringToNBA (debug: bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) timeout (autString : String) = 
+    let convertHoaStringToNBA (debug: bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (autString : String) = 
         try
             let path = Path.Combine [|intermediateFilesPath; "aut1.hoa"|]
             let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
@@ -328,17 +333,18 @@ module AutomatonFromString =
 
             let arg = "--small --" + Effort.asString ef + " -S -B " + path + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
+            let res = Util.SystemCallUtil.systemCall autfiltPath arg
 
             match res with 
-            | SystemCallSuccess _ -> 
+            | {ExitCode = 0; Stderr = ""} -> 
                 let c = File.ReadAllText(targetPath)
                 HoaConversion.resultToNBA c id
                 |> Success
-            | SystemCallTimeout -> 
-                Timeout
-            | SystemCallError err -> 
-                Fail (err)
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 then 
+                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
         with 
         | _ when debug -> reraise() 
         | ConversionException err -> 
@@ -346,7 +352,7 @@ module AutomatonFromString =
         | e -> 
             Fail ($"%s{e.Message}")
 
-    let convertHoaStringToDPA (debug: bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) timeout (autString : String) = 
+    let convertHoaStringToDPA (debug: bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (autString : String) = 
         try 
             let path = Path.Combine [|intermediateFilesPath; "aut1.hoa"|]
             let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
@@ -354,17 +360,18 @@ module AutomatonFromString =
             File.WriteAllText(path, autString)
 
             let arg = "--small --" + Effort.asString ef + " -D -C -S -p\"max even\" " + path + " -o " + targetPath
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
+            let res = Util.SystemCallUtil.systemCall autfiltPath arg
 
             match res with 
-            | SystemCallSuccess _ -> 
+            | {ExitCode = 0; Stderr = ""} -> 
                 let c = File.ReadAllText(targetPath)
                 HoaConversion.resultToDPA c id
                 |> Success
-            | SystemCallTimeout -> 
-                Timeout
-            | SystemCallError err -> 
-                Fail (err)
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 then 
+                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
@@ -374,7 +381,7 @@ module AutomatonFromString =
 
    
 module AutomataOperations = 
-    let complementToGNBA debug (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) timeout (aut : AbstractAutomaton<int, 'L>) = 
+    let complementToGNBA debug (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (aut : AbstractAutomaton<int, 'L>) = 
         try
             let dict, revDict = 
                 aut.Skeleton.APs
@@ -393,17 +400,18 @@ module AutomataOperations =
 
             let arg = "--small --" + Effort.asString ef + " -S --gba --complement " + path + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
+            let res = Util.SystemCallUtil.systemCall autfiltPath arg
             
             match res with 
-            | SystemCallSuccess _ -> 
+            | {ExitCode = 0; Stderr = ""} -> 
                 let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToGNBA c (fun x -> revDict.[x]) 
+                HoaConversion.resultToGNBA c (fun x -> revDict.[x])
                 |> Success
-            | SystemCallTimeout -> 
-                Timeout
-            | SystemCallError err -> 
-                Fail err
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 then 
+                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
@@ -411,7 +419,7 @@ module AutomataOperations =
         | e -> 
             Fail ($"%s{e.Message}")
 
-    let complementToNBA debug (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) timeout (aut : AbstractAutomaton<int, 'L>) = 
+    let complementToNBA debug (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (aut : AbstractAutomaton<int, 'L>) = 
         try 
             let dict, revDict = 
                 aut.Skeleton.APs
@@ -430,17 +438,18 @@ module AutomataOperations =
 
             let arg = "--small --" + Effort.asString ef + " -S -B --complement " + path + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
+            let res = Util.SystemCallUtil.systemCall autfiltPath arg
             
             match res with 
-            | SystemCallSuccess _ -> 
+            | {ExitCode = 0; Stderr = ""} -> 
                 let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToNBA c (fun x -> revDict.[x]) 
+                HoaConversion.resultToNBA c (fun x -> revDict.[x])
                 |> Success
-            | SystemCallTimeout -> 
-                Timeout
-            | SystemCallError err -> 
-                Fail err
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 then 
+                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
 
         with
         | _ when debug -> reraise() 
@@ -449,7 +458,7 @@ module AutomataOperations =
         | e -> 
             Fail ($"%s{e.Message}")
 
-    let unionToGNBA debug (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) timeout (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>) = 
+    let unionToGNBA debug (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>) = 
         try
             let dict, revDict = 
                 aut1.Skeleton.APs @ aut2.Skeleton.APs
@@ -472,17 +481,18 @@ module AutomataOperations =
 
             let arg = "--small --" + Effort.asString ef + " --product-or=" + path2 + " -S --gba " + path1 + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
+            let res = Util.SystemCallUtil.systemCall autfiltPath arg
 
             match res with 
-            | SystemCallSuccess _ -> 
+            | {ExitCode = 0; Stderr = ""} -> 
                 let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToGNBA c (fun x -> revDict.[x]) 
-                |> Success  
-            | SystemCallTimeout -> 
-                Timeout
-            | SystemCallError err -> 
-                Fail err
+                HoaConversion.resultToGNBA c (fun x -> revDict.[x])
+                |> Success
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 then 
+                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
@@ -490,7 +500,7 @@ module AutomataOperations =
         | e -> 
             Fail ($"%s{e.Message}")
 
-    let intersectToGNBA debug (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) timeout (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>) = 
+    let intersectToGNBA debug (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>) = 
         try 
             let dict, revDict = 
                 aut1.Skeleton.APs @ aut2.Skeleton.APs
@@ -513,17 +523,18 @@ module AutomataOperations =
 
             let arg = "--small --" + Effort.asString ef + " --product=" + path2 + " -S --gba " + path1 + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
+            let res = Util.SystemCallUtil.systemCall autfiltPath arg
 
             match res with 
-            | SystemCallSuccess _ -> 
+            | {ExitCode = 0; Stderr = ""} -> 
                 let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToGNBA c (fun x -> revDict.[x]) 
-                |> Success 
-            | SystemCallTimeout -> 
-                Timeout
-            | SystemCallError err -> 
-                Fail err
+                HoaConversion.resultToGNBA c (fun x -> revDict.[x])
+                |> Success
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 then 
+                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
@@ -533,7 +544,7 @@ module AutomataOperations =
 
 module LTLConversion = 
 
-    let convertLTLtoGNBA debug (intermediateFilesPath : String) (ltl2tgbaPath : String) timeout (ltl : LTL<'L>)  = 
+    let convertLTLtoGNBA debug (intermediateFilesPath : String) (ltl2tgbaPath : String) (ltl : LTL<'L>)  = 
         try 
             let dict, revDict = 
                 ltl 
@@ -553,17 +564,18 @@ module LTLConversion =
 
             let args = "-S --gba \"" + ltlAsString + "\"" + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall ltl2tgbaPath args timeout
+            let res = Util.SystemCallUtil.systemCall ltl2tgbaPath args
 
             match res with 
-            | SystemCallSuccess _ -> 
+            | {ExitCode = 0; Stderr = ""} -> 
                 let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToGNBA c (fun x -> revDict.[x]) 
+                HoaConversion.resultToGNBA c (fun x -> revDict.[x])
                 |> Success
-            | SystemCallTimeout -> 
-                Timeout
-            | SystemCallError err -> 
-                Fail err
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 then 
+                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
@@ -571,7 +583,7 @@ module LTLConversion =
         | e -> 
             Fail ($"%s{e.Message}")
 
-    let convertLTLtoNBA debug (intermediateFilesPath : String) (ltl2tgbaPath : String) timeout (ltl : LTL<'L>)  = 
+    let convertLTLtoNBA debug (intermediateFilesPath : String) (ltl2tgbaPath : String) (ltl : LTL<'L>)  = 
         try 
             let dict, revDict = 
                 ltl 
@@ -591,17 +603,18 @@ module LTLConversion =
 
             let args = "-S -B \"" + ltlAsString + "\"" + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall ltl2tgbaPath args timeout
+            let res = Util.SystemCallUtil.systemCall ltl2tgbaPath args
 
             match res with 
-            | SystemCallSuccess _ -> 
+            | {ExitCode = 0; Stderr = ""} -> 
                 let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToNBA c (fun x -> revDict.[x]) 
+                HoaConversion.resultToNBA c (fun x -> revDict.[x])
                 |> Success
-            | SystemCallTimeout -> 
-                Timeout
-            | SystemCallError err -> 
-                Fail err
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 then 
+                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
@@ -609,7 +622,7 @@ module LTLConversion =
         | e -> 
             Fail ($"%s{e.Message}")
 
-    let convertLTLtoDPA debug (intermediateFilesPath : String) (ltl2tgbaPath : String) timeout (ltl : LTL<'L>)  = 
+    let convertLTLtoDPA debug (intermediateFilesPath : String) (ltl2tgbaPath : String) (ltl : LTL<'L>)  = 
         try 
             let dict, revDict = 
                 ltl 
@@ -629,17 +642,18 @@ module LTLConversion =
 
             let args = "-S -C -D -p\"max even\" \"" + ltlAsString + "\"" + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall ltl2tgbaPath args timeout
+            let res = Util.SystemCallUtil.systemCall ltl2tgbaPath args
 
             match res with 
-            | SystemCallSuccess _ -> 
+            | {ExitCode = 0; Stderr = ""} -> 
                 let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToDPA c (fun x -> revDict.[x]) 
-                |> Success  
-            | SystemCallTimeout -> 
-                Timeout
-            | SystemCallError err -> 
-                Fail err
+                HoaConversion.resultToDPA c (fun x -> revDict.[x])
+                |> Success
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 then 
+                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
@@ -648,7 +662,7 @@ module LTLConversion =
             Fail ($"%s{e.Message}")
 
 module AutomataChecks = 
-    let checkEmptiness debug (intermediateFilesPath : String) (autfiltPath : String) timeout (aut : AbstractAutomaton<int, 'L>) = 
+    let checkEmptiness debug (intermediateFilesPath : String) (autfiltPath : String) (aut : AbstractAutomaton<int, 'L>) = 
         try
             let dict = 
                 aut.Skeleton.APs
@@ -664,16 +678,18 @@ module AutomataChecks =
 
             let args = "--is-empty " + path
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath args timeout
+            //let res = Util.SystemCallUtil.systemCall autfiltPath args timeout
+            let res = Util.SystemCallUtil.systemCall autfiltPath args
 
             match res with 
-            | SystemCallSuccess c -> 
+            | {ExitCode = 0; Stderr = ""; Stdout = c} | {ExitCode = 1; Stderr = ""; Stdout = c} -> 
                 if c = "" then false else true
                 |> Success
-            | SystemCallTimeout -> 
-                Timeout
-            | SystemCallError err -> 
-                Fail err
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 && exitCode <> 1 then 
+                    raise <| ConversionException $"Unexpected exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
@@ -681,7 +697,7 @@ module AutomataChecks =
         | e -> 
             Fail ($"%s{e.Message}")
 
-    let checkContainment debug (intermediateFilesPath : String) (autfiltPath : String) timeout (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>)  = 
+    let checkContainment debug (intermediateFilesPath : String) (autfiltPath : String) (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>)  = 
         try 
             let dict = 
                 aut1.Skeleton.APs @ aut2.Skeleton.APs
@@ -701,16 +717,17 @@ module AutomataChecks =
             File.WriteAllText(path2, s2)
 
             let arg = "--included-in=" + path2 + " " + path1
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
+            let res = Util.SystemCallUtil.systemCall autfiltPath arg
 
             match res with 
-            | SystemCallSuccess c -> 
+            | {ExitCode = 0; Stderr = ""; Stdout = c} | {ExitCode = 1; Stderr = ""; Stdout = c} -> 
                 if c = "" then false else true
                 |> Success
-            | SystemCallTimeout -> 
-                Timeout
-            | SystemCallError err -> 
-                Fail err
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 && exitCode <> 1 then 
+                    raise <| ConversionException $"Unexpected exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
@@ -718,7 +735,7 @@ module AutomataChecks =
         | e -> 
             Fail ($"%s{e.Message}")
 
-    let checkEquivalence debug (intermediateFilesPath : String) (autfiltPath : String) timeout (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>) = 
+    let checkEquivalence debug (intermediateFilesPath : String) (autfiltPath : String) (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>) = 
         try
             let dict =
                 aut1.Skeleton.APs @ aut2.Skeleton.APs
@@ -738,16 +755,17 @@ module AutomataChecks =
             File.WriteAllText(path2, s2)
 
             let arg = "--equivalent-to=" + path2 + " " + path1
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg timeout
+            let res = Util.SystemCallUtil.systemCall autfiltPath arg
 
             match res with 
-            | SystemCallSuccess c -> 
+            | {ExitCode = 0; Stderr = ""; Stdout = c} | {ExitCode = 1; Stderr = ""; Stdout = c} -> 
                 if c = "" then false else true
                 |> Success
-            | SystemCallTimeout -> 
-                Timeout
-            | SystemCallError err -> 
-                Fail err
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 && exitCode <> 1 then 
+                    raise <| ConversionException $"Unexpected exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 

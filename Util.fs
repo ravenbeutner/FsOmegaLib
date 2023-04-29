@@ -16,10 +16,8 @@
 *)
 
 module internal FsOmegaLib.Util
-#nowarn "59"
 
 open System
-open System.Collections.Generic
 
 let rec combineStringsWithSeperator (s: String) (l: list<String>) = 
     match l with 
@@ -37,46 +35,35 @@ let rec cartesianProduct (LL: list<seq<'a>>) =
                 for xs in cartesianProduct Ls -> x :: xs
         }
 
-let dictToMap (d : Dictionary<'A, 'B>) = 
-    d 
-    |> Seq.map (fun x -> x.Key, x.Value)
-    |> Map.ofSeq
-
 module SystemCallUtil = 
 
     type SystemCallResult = 
-        | SystemCallSuccess of String
-        | SystemCallError of String
-        | SystemCallTimeout
+        {
+            Stdout : String 
+            Stderr : String 
+            ExitCode : int
+        }
 
-    let systemCall cmd arg timeout =
-        let p = new System.Diagnostics.Process()
-        
-        p.StartInfo.RedirectStandardOutput <- true
-        p.StartInfo.RedirectStandardError <- true
-        p.StartInfo.UseShellExecute <- false
-        p.StartInfo.FileName <- cmd
-        p.StartInfo.Arguments <- arg
-        p.Start() |> ignore 
+    let systemCall (cmd: string) (arg: string) = 
+        let psi =
+            System.Diagnostics.ProcessStartInfo(cmd, arg)
 
-        let a = 
-            match timeout with 
-                | Option.None -> 
-                    true
-                | Some t -> 
-                    
-                    p.WaitForExit(t :> int)
+        psi.UseShellExecute <- false
+        psi.RedirectStandardOutput <- true
+        psi.RedirectStandardError <- true
+        psi.CreateNoWindow <- true
+        let p = System.Diagnostics.Process.Start(psi)
+        let output = System.Text.StringBuilder()
+        let error = System.Text.StringBuilder()
+        p.OutputDataReceived.Add(fun args -> output.Append(args.Data) |> ignore)
+        p.ErrorDataReceived.Add(fun args -> error.Append(args.Data) |> ignore)
+        p.BeginErrorReadLine()
+        p.BeginOutputReadLine()
+        p.WaitForExit()
 
-        if a then 
-            let err = p.StandardError.ReadToEnd() 
-
-            if err <> "" then 
-                SystemCallError err
-            else 
-                let res = p.StandardOutput.ReadToEnd()
-                p.Kill true
-                SystemCallSuccess res
-        else 
-            p.Kill true
-            SystemCallTimeout
+        {
+            SystemCallResult.Stdout = output.ToString();
+            Stderr = error.ToString()
+            ExitCode = p.ExitCode
+        }
             
