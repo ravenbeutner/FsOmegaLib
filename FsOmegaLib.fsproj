@@ -17,7 +17,7 @@
     <Compile Include="NBA.fs" />
     <Compile Include="DPA.fs" />
     <Compile Include="LTL.fs" />
-    <Compile Include="Conversion.fs" />
+    <Compile Include="Operations.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FParsec" Version="1.1.1" />

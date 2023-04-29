@@ -15,7 +15,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 *)
 
-module FsOmegaLib.Conversion
+module FsOmegaLib.Operations
 
 open System
 open System.IO
@@ -28,7 +28,7 @@ open NBA
 open DPA
 open LTL
 
-type AutomataConversionResult<'T> =
+type AutomataOperationResult<'T> =
     | Success of 'T 
     | Fail of String
 
