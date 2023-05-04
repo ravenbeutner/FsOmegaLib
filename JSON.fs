@@ -97,7 +97,7 @@ module JSON =
         | JString s -> Some s 
         | _ -> None
     
-    let ryGetNumber (json : Json) = 
+    let tryGetNumber (json : Json) = 
         match json with 
         | JNumber n -> Some n
         | _ -> None
@@ -116,7 +116,6 @@ module JSON =
         match json with 
         | JObject s -> Some s 
         | _ -> None
-    
 
 
 module Parser = 
