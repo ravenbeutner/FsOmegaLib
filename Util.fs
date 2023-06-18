@@ -35,16 +35,16 @@ let rec cartesianProduct (LL: list<seq<'a>>) =
                 for xs in cartesianProduct Ls -> x :: xs
         }
 
-module SystemCallUtil = 
+module SubprocessUtil = 
 
-    type SystemCallResult = 
+    type SubprocessResult = 
         {
             Stdout : String 
             Stderr : String 
             ExitCode : int
         }
 
-    let systemCall (cmd: string) (arg: string) = 
+    let executeSubprocess (cmd: string) (arg: string) = 
         let psi =
             System.Diagnostics.ProcessStartInfo(cmd, arg)
 
@@ -62,7 +62,7 @@ module SystemCallUtil =
         p.WaitForExit()
 
         {
-            SystemCallResult.Stdout = output.ToString();
+            SubprocessResult.Stdout = output.ToString();
             Stderr = error.ToString()
             ExitCode = p.ExitCode
         }

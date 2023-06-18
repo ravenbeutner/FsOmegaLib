@@ -20,7 +20,7 @@ module FsOmegaLib.Operations
 open System
 open System.IO
 
-open Util.SystemCallUtil
+open Util.SubprocessUtil
 open HOA
 open AbstractAutomaton
 open GNBA
@@ -199,7 +199,7 @@ module AutomatonConversions =
 
             let arg = "--small --" + Effort.asString ef + " -S --gba " + path + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
 
             match res with 
             | {ExitCode = 0; Stderr = ""} -> 
@@ -238,7 +238,7 @@ module AutomatonConversions =
 
             let arg = "--small --" + Effort.asString ef + " -S -B " + path + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
 
             match res with 
             | {ExitCode = 0; Stderr = ""} -> 
@@ -275,7 +275,7 @@ module AutomatonConversions =
             File.WriteAllText(path, s)
 
             let arg = "--small --" + Effort.asString ef + " -D -C -S -p\"max even\" " + path + " -o " + targetPath
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
 
             match res with 
             | {ExitCode = 0; Stderr = ""} -> 
@@ -304,7 +304,7 @@ module AutomatonFromString =
 
             let arg = "--small --" + Effort.asString ef + " -S --gba " + path + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
 
             match res with 
             | {ExitCode = 0; Stderr = ""} -> 
@@ -333,7 +333,7 @@ module AutomatonFromString =
 
             let arg = "--small --" + Effort.asString ef + " -S -B " + path + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
 
             match res with 
             | {ExitCode = 0; Stderr = ""} -> 
@@ -360,7 +360,7 @@ module AutomatonFromString =
             File.WriteAllText(path, autString)
 
             let arg = "--small --" + Effort.asString ef + " -D -C -S -p\"max even\" " + path + " -o " + targetPath
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
 
             match res with 
             | {ExitCode = 0; Stderr = ""} -> 
@@ -400,7 +400,7 @@ module AutomataOperations =
 
             let arg = "--small --" + Effort.asString ef + " -S --gba --complement " + path + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
             
             match res with 
             | {ExitCode = 0; Stderr = ""} -> 
@@ -438,7 +438,7 @@ module AutomataOperations =
 
             let arg = "--small --" + Effort.asString ef + " -S -B --complement " + path + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
             
             match res with 
             | {ExitCode = 0; Stderr = ""} -> 
@@ -481,7 +481,7 @@ module AutomataOperations =
 
             let arg = "--small --" + Effort.asString ef + " --product-or=" + path2 + " -S --gba " + path1 + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
 
             match res with 
             | {ExitCode = 0; Stderr = ""} -> 
@@ -523,7 +523,7 @@ module AutomataOperations =
 
             let arg = "--small --" + Effort.asString ef + " --product=" + path2 + " -S --gba " + path1 + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
 
             match res with 
             | {ExitCode = 0; Stderr = ""} -> 
@@ -564,7 +564,7 @@ module LTLConversion =
 
             let args = "-S --gba \"" + ltlAsString + "\"" + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall ltl2tgbaPath args
+            let res = Util.SubprocessUtil.executeSubprocess ltl2tgbaPath args
 
             match res with 
             | {ExitCode = 0; Stderr = ""} -> 
@@ -603,7 +603,7 @@ module LTLConversion =
 
             let args = "-S -B \"" + ltlAsString + "\"" + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall ltl2tgbaPath args
+            let res = Util.SubprocessUtil.executeSubprocess ltl2tgbaPath args
 
             match res with 
             | {ExitCode = 0; Stderr = ""} -> 
@@ -642,7 +642,7 @@ module LTLConversion =
 
             let args = "-S -C -D -p\"max even\" \"" + ltlAsString + "\"" + " -o " + targetPath
 
-            let res = Util.SystemCallUtil.systemCall ltl2tgbaPath args
+            let res = Util.SubprocessUtil.executeSubprocess ltl2tgbaPath args
 
             match res with 
             | {ExitCode = 0; Stderr = ""} -> 
@@ -678,7 +678,7 @@ module AutomataChecks =
 
             let args = "--is-empty " + path
 
-            let res = Util.SystemCallUtil.systemCall autfiltPath args
+            let res = Util.SubprocessUtil.executeSubprocess autfiltPath args
 
             match res with 
             | {ExitCode = 0; Stderr = ""; Stdout = c} | {ExitCode = 1; Stderr = ""; Stdout = c} -> 
@@ -716,7 +716,7 @@ module AutomataChecks =
             File.WriteAllText(path2, s2)
 
             let arg = "--included-in=" + path2 + " " + path1
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
 
             match res with 
             | {ExitCode = 0; Stderr = ""; Stdout = c} | {ExitCode = 1; Stderr = ""; Stdout = c} -> 
@@ -754,7 +754,7 @@ module AutomataChecks =
             File.WriteAllText(path2, s2)
 
             let arg = "--equivalent-to=" + path2 + " " + path1
-            let res = Util.SystemCallUtil.systemCall autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
 
             match res with 
             | {ExitCode = 0; Stderr = ""; Stdout = c} | {ExitCode = 1; Stderr = ""; Stdout = c} -> 
