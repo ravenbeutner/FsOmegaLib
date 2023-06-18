@@ -678,7 +678,6 @@ module AutomataChecks =
 
             let args = "--is-empty " + path
 
-            //let res = Util.SystemCallUtil.systemCall autfiltPath args timeout
             let res = Util.SystemCallUtil.systemCall autfiltPath args
 
             match res with 
