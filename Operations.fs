@@ -28,11 +28,17 @@ open NBA
 open DPA
 open LTL
 
+type FsOmegaLibError = 
+    {
+        Info : String // A user-friendly error message that should be displayed to the user
+        DebugInfo : String // Additional Information that can be used for debugging 
+    }
+
 type AutomataOperationResult<'T> =
     | Success of 'T 
-    | Fail of String
+    | Fail of FsOmegaLibError
 
-exception internal ConversionException of String
+exception internal ConversionException of FsOmegaLibError
 
 type Effort = 
     | LOW 
@@ -65,8 +71,8 @@ module private HoaConversion =
         let numberOfAccSets =  
             match header.Acceptance with 
             | Some (numberOfAccSets: int, acc) when isGNBAAccCondition acc -> numberOfAccSets
-            | _ -> raise <| ConversionException $"No valid Acceptance condition for a GNBA: %A{header.Acceptance}"
-
+            | _ -> raise <| ConversionException {Info = $"Could not convert HANOI automaton to GNBA"; DebugInfo = $"No valid Acceptance condition for a GNBA: %A{header.Acceptance}"}
+            
         {
             GNBA.Skeleton = 
                 {
@@ -98,7 +104,7 @@ module private HoaConversion =
 
         match hoaAut.Header.Acceptance with 
         | Some (1, AccAtomInf (PosAcceptanceSet 0)) -> ()
-        | _ -> raise <| ConversionException $"No valid NBA-Acceptance condition: %A{hoaAut.Header.Acceptance}" 
+        | _ -> raise <| ConversionException {Info = $"Could not convert HANOI automaton to NBA"; DebugInfo = $"No valid Acceptance condition for a NBA: %A{hoaAut.Header.Acceptance}"}
         
         {
             NBA.Skeleton = 
@@ -135,7 +141,7 @@ module private HoaConversion =
 
         match hoaAut.Header.Acceptance with 
         | Some (_, acc) when isParityCondition acc -> ()
-        | _ -> raise <| ConversionException $"No valid DPA-Acceptance condition: %A{hoaAut.Header.Acceptance}" 
+        | _ -> raise <| ConversionException {Info = $"Could not convert HANOI automaton to DPA"; DebugInfo = $"No valid Acceptance condition for a parity automaton: %A{hoaAut.Header.Acceptance}"}
         
         {
             DPA.Skeleton = 
@@ -162,21 +168,21 @@ module private HoaConversion =
         | Ok hoa -> 
             convertHoaToGNBA hoa
             |> GNBA.mapAPs f
-        | Error err -> raise <| ConversionException err
+        | Error err -> raise <| ConversionException {Info = $"Could not parse HANOI automaton"; DebugInfo = $"Could not parse HANOI automaton into GNBA: %s{err}"}
         
     let resultToNBA (res: String) (f : String -> 'L) = 
         match HOA.Parser.parseHoaAutomaton res with 
         | Ok hoa -> 
             convertHoaToNBA hoa
             |> NBA.mapAPs f
-        | Error err -> raise <| ConversionException err
+        | Error err -> raise <| ConversionException {Info = $"Could not parse HANOI automaton"; DebugInfo = $"Could not parse HANOI automaton into NBA: %s{err}"}
 
     let resultToDPA (res: String) (f : String -> 'L) = 
         match HOA.Parser.parseHoaAutomaton res with 
         | Ok hoa -> 
             convertHoaToDPA hoa
             |> DPA.mapAPs f
-        | Error err -> raise <| ConversionException err
+        | Error err -> raise <| ConversionException {Info = $"Could not parse HANOI automaton"; DebugInfo = $"Could not parse HANOI automaton into DPA: %s{err}"}
             
 
 module AutomatonConversions = 
@@ -208,16 +214,16 @@ module AutomatonConversions =
                 |> Success
             | {ExitCode = exitCode; Stderr = stderr}  -> 
                 if exitCode <> 0 then 
-                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (convert, GNBA); %i{exitCode}"}
                 else   
-                    raise <| ConversionException stderr
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (convert, GNBA); %s{stderr}"}
 
         with 
         | _ when debug -> reraise() 
         | ConversionException err -> 
-            Fail (err)
+            Fail err
         | e -> 
-            Fail ($"%s{e.Message}")
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (convert, GNBA); %s{e.Message}"}
 
     let convertToNBA (debug: bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (aut : AbstractAutomaton<int, 'L>) = 
         try
@@ -247,15 +253,15 @@ module AutomatonConversions =
                 |> Success
             | {ExitCode = exitCode; Stderr = stderr}  -> 
                 if exitCode <> 0 then 
-                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (convert, NBA); %i{exitCode}"}
                 else   
-                    raise <| ConversionException stderr
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (convert, NPA); %s{stderr}"}
         with 
         | _ when debug -> reraise() 
         | ConversionException err -> 
             Fail (err)
         | e -> 
-            Fail ($"%s{e.Message}")
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (convert, NBA); %s{e.Message}"}
 
     let convertToDPA (debug: bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (aut : AbstractAutomaton<int, 'L>) = 
         try 
@@ -284,15 +290,15 @@ module AutomatonConversions =
                 |> Success
             | {ExitCode = exitCode; Stderr = stderr}  -> 
                 if exitCode <> 0 then 
-                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (convert, DPA); %i{exitCode}"}
                 else   
-                    raise <| ConversionException stderr
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (convert, DPA); %s{stderr}"}
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
             Fail (err)
         | e -> 
-            Fail ($"%s{e.Message}")
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (convert, DPA); %s{e.Message}"}
 
 module AutomatonFromString = 
     let convertHoaStringToGNBA (debug : bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (autString : String) = 
@@ -313,16 +319,16 @@ module AutomatonFromString =
                 |> Success
             | {ExitCode = exitCode; Stderr = stderr}  -> 
                 if exitCode <> 0 then 
-                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (convert, GNBA, string); %i{exitCode}"}
                 else   
-                    raise <| ConversionException stderr
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (convert, GNBA, string); %s{stderr}"}
 
         with 
         | _ when debug -> reraise() 
         | ConversionException err -> 
             Fail (err)
         | e -> 
-            Fail ($"%s{e.Message}")
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (convert, GNBA, string); %s{e.Message}"}
 
     let convertHoaStringToNBA (debug: bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (autString : String) = 
         try
@@ -342,15 +348,15 @@ module AutomatonFromString =
                 |> Success
             | {ExitCode = exitCode; Stderr = stderr}  -> 
                 if exitCode <> 0 then 
-                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (convert, NBA, string); %i{exitCode}"}
                 else   
-                    raise <| ConversionException stderr
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (convert, NBA, string); %s{stderr}"}
         with 
         | _ when debug -> reraise() 
         | ConversionException err -> 
             Fail (err)
         | e -> 
-            Fail ($"%s{e.Message}")
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (convert, NBA, string); %s{e.Message}"}
 
     let convertHoaStringToDPA (debug: bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (autString : String) = 
         try 
@@ -369,15 +375,15 @@ module AutomatonFromString =
                 |> Success
             | {ExitCode = exitCode; Stderr = stderr}  -> 
                 if exitCode <> 0 then 
-                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (convert, DPA, string); %i{exitCode}"}
                 else   
-                    raise <| ConversionException stderr
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (convert, DPA, string); %s{stderr}"}
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
             Fail (err)
         | e -> 
-            Fail ($"%s{e.Message}")
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (convert, DPA, string); %s{e.Message}"}
 
    
 module AutomataOperations = 
@@ -409,15 +415,15 @@ module AutomataOperations =
                 |> Success
             | {ExitCode = exitCode; Stderr = stderr}  -> 
                 if exitCode <> 0 then 
-                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (complement, GNBA); %i{exitCode}"}
                 else   
-                    raise <| ConversionException stderr
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (complement, GNBA); %s{stderr}"}
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
             Fail (err)
         | e -> 
-            Fail ($"%s{e.Message}")
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (complement, GNBA); %s{e.Message}"}
 
     let complementToNBA debug (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (aut : AbstractAutomaton<int, 'L>) = 
         try 
@@ -447,16 +453,16 @@ module AutomataOperations =
                 |> Success
             | {ExitCode = exitCode; Stderr = stderr}  -> 
                 if exitCode <> 0 then 
-                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (complement, NBA); %i{exitCode}"}
                 else   
-                    raise <| ConversionException stderr
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (complement, NBA); %s{stderr}"}
 
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
             Fail (err)
         | e -> 
-            Fail ($"%s{e.Message}")
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (complement, NBA); %s{e.Message}"}
 
     let unionToGNBA debug (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>) = 
         try
@@ -490,15 +496,15 @@ module AutomataOperations =
                 |> Success
             | {ExitCode = exitCode; Stderr = stderr}  -> 
                 if exitCode <> 0 then 
-                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (union, GNBA); %i{exitCode}"}
                 else   
-                    raise <| ConversionException stderr
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (union, GNBA); %s{stderr}"}
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
             Fail (err)
         | e -> 
-            Fail ($"%s{e.Message}")
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (union, GNBA); %s{e.Message}"}
 
     let intersectToGNBA debug (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>) = 
         try 
@@ -532,15 +538,15 @@ module AutomataOperations =
                 |> Success
             | {ExitCode = exitCode; Stderr = stderr}  -> 
                 if exitCode <> 0 then 
-                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (intersect, GNBA); %i{exitCode}"}
                 else   
-                    raise <| ConversionException stderr
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (intersect, GNBA); %s{stderr}"}
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
             Fail (err)
         | e -> 
-            Fail ($"%s{e.Message}")
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (intersect, GNBA); %s{e.Message}"}
 
 module LTLConversion = 
 
@@ -573,15 +579,15 @@ module LTLConversion =
                 |> Success
             | {ExitCode = exitCode; Stderr = stderr}  -> 
                 if exitCode <> 0 then 
-                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (LTL, GNBA); %i{exitCode}"}
                 else   
-                    raise <| ConversionException stderr
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (LTL, GNBA); %s{stderr}"}
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
             Fail (err)
         | e -> 
-            Fail ($"%s{e.Message}")
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (LTL, GNBA); %s{e.Message}"}
 
     let convertLTLtoNBA debug (intermediateFilesPath : String) (ltl2tgbaPath : String) (ltl : LTL<'L>)  = 
         try 
@@ -612,15 +618,15 @@ module LTLConversion =
                 |> Success
             | {ExitCode = exitCode; Stderr = stderr}  -> 
                 if exitCode <> 0 then 
-                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (LTL, NBA); %i{exitCode}"}
                 else   
-                    raise <| ConversionException stderr
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (ltl, NBA); %s{stderr}"}
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
             Fail (err)
         | e -> 
-            Fail ($"%s{e.Message}")
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (LTL, NBA); %s{e.Message}"}
 
     let convertLTLtoDPA debug (intermediateFilesPath : String) (ltl2tgbaPath : String) (ltl : LTL<'L>)  = 
         try 
@@ -651,15 +657,15 @@ module LTLConversion =
                 |> Success
             | {ExitCode = exitCode; Stderr = stderr}  -> 
                 if exitCode <> 0 then 
-                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (LTL, DPA); %i{exitCode}"}
                 else   
-                    raise <| ConversionException stderr
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (ltl, DPA); %s{stderr}"}
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
             Fail (err)
         | e -> 
-            Fail ($"%s{e.Message}")
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (LTL, DPA); %s{e.Message}"}
 
 module AutomataChecks = 
     let isEmpty debug (intermediateFilesPath : String) (autfiltPath : String) (aut : AbstractAutomaton<int, 'L>) = 
@@ -686,15 +692,15 @@ module AutomataChecks =
                 |> Success
             | {ExitCode = exitCode; Stderr = stderr}  -> 
                 if exitCode <> 0 && exitCode <> 1 then 
-                    raise <| ConversionException $"Unexpected exit code %i{exitCode}"
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (emptiness); %i{exitCode}"}
                 else   
-                    raise <| ConversionException stderr
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (emptiness); %s{stderr}"}
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
             Fail (err)
         | e -> 
-            Fail ($"%s{e.Message}")
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (emptiness); %s{e.Message}"}
 
     let isContained debug (intermediateFilesPath : String) (autfiltPath : String) (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>)  = 
         try 
@@ -724,15 +730,15 @@ module AutomataChecks =
                 |> Success
             | {ExitCode = exitCode; Stderr = stderr}  -> 
                 if exitCode <> 0 && exitCode <> 1 then 
-                    raise <| ConversionException $"Unexpected exit code %i{exitCode}"
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (containment); %i{exitCode}"}
                 else   
-                    raise <| ConversionException stderr
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (containment); %s{stderr}"}
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
             Fail (err)
         | e -> 
-            Fail ($"%s{e.Message}")
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (containment); %s{e.Message}"}
 
     let isEquivalent debug (intermediateFilesPath : String) (autfiltPath : String) (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>) = 
         try
@@ -762,12 +768,12 @@ module AutomataChecks =
                 |> Success
             | {ExitCode = exitCode; Stderr = stderr}  -> 
                 if exitCode <> 0 && exitCode <> 1 then 
-                    raise <| ConversionException $"Unexpected exit code %i{exitCode}"
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (equivalence); %i{exitCode}"}
                 else   
-                    raise <| ConversionException stderr
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (equivalence); %s{stderr}"}
         with
         | _ when debug -> reraise() 
         | ConversionException err -> 
             Fail (err)
         | e -> 
-            Fail ($"%s{e.Message}")
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (equivalence); %s{e.Message}"}
