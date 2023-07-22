@@ -21,46 +21,46 @@ open System
 open System.IO
 
 open SAT
-open AutomatonSkeleton
+open NondeterminsticAutomatonSkeleton
 open AbstractAutomaton
 
 exception private NotWellFormedException of String
 
 type GNBA<'T, 'L when 'T: comparison and 'L : comparison> = 
     {
-        Skeleton : AutomatonSkeleton<'T, 'L>
+        Skeleton : NondeterminsticAutomatonSkeleton<'T, 'L>
         InitialStates : Set<'T>
         AcceptanceSets: Map<'T, Set<int>>
         NumberOfAcceptingSets : int
     }
 
     member this.States = 
-        this.Skeleton.States
+        this.Skeleton.Skeleton.States
 
     member this.Edges = 
-        this.Skeleton.Edges
+        this.Skeleton.Skeleton.Edges
 
     member this.APs = 
-        this.Skeleton.APs
+        this.Skeleton.Skeleton.APs
 
     interface AbstractAutomaton<'T, 'L> with
         member this.Skeleton = 
-            this.Skeleton
+            this.Skeleton.Skeleton
 
         member this.FindError() = 
             try 
-                match AutomatonSkeleton.findError this.Skeleton with 
+                match NondeterminsticAutomatonSkeleton.findError this.Skeleton with 
                 | Some err -> 
                     raise <| NotWellFormedException err 
                 | None -> ()
 
                 this.InitialStates
                 |> Seq.iter (fun x -> 
-                    if this.Skeleton.States.Contains x |> not then 
+                    if this.Skeleton.Skeleton.States.Contains x |> not then 
                         raise <| NotWellFormedException $"State $A{x} is initial but not contained in the set of states"
                 )
 
-                this.Skeleton.States
+                this.Skeleton.Skeleton.States
                 |> Seq.iter (fun x -> 
                     if this.AcceptanceSets.ContainsKey x |> not then 
                         raise <| NotWellFormedException $"No acc-sets defined for state $A{x}"
@@ -68,7 +68,7 @@ type GNBA<'T, 'L when 'T: comparison and 'L : comparison> =
                     this.AcceptanceSets.[x]
                     |> Set.iter (fun i -> 
                         if i >= this.NumberOfAcceptingSets || i < 0 then 
-                            raise <| NotWellFormedException $"The accptance set %i{i} is used in state %A{x} but is out of range"
+                            raise <| NotWellFormedException $"The acceptance set %i{i} is used in state %A{x} but is out of range"
                         )
                 )
                 None 
@@ -77,18 +77,23 @@ type GNBA<'T, 'L when 'T: comparison and 'L : comparison> =
 
 
         member this.ToHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) = 
-            let s = new StringWriter() 
+            let stringWriter = new StringWriter() 
 
-            s.WriteLine("HOA: v1")
+            stringWriter.WriteLine("HOA: v1")
 
-            s.WriteLine ("States: " + string(this.States.Count))
+            stringWriter.WriteLine ("States: " + string this.States.Count)
             
-            for n in this.InitialStates do 
-                s.WriteLine ("Start: " + stateStringer(n))
+            for s in this.InitialStates do 
+                stringWriter.WriteLine ("Start: " + stateStringer s)
 
-            s.WriteLine ("AP: " + string(this.APs.Length) + " " + List.fold (fun s x -> s + " \"" + alphStringer(x) + "\"") "" this.APs)
+            let apsString = 
+                this.APs 
+                |> List.map (fun x -> "\"" + alphStringer(x) + "\"") 
+                |> Util.combineStringsWithSeperator " "
 
-            s.WriteLine ("acc-name: generalized-Buchi " + string(this.NumberOfAcceptingSets))
+            stringWriter.WriteLine ("AP: " + string(this.APs.Length) + " " + apsString)
+             
+            stringWriter.WriteLine ("acc-name: generalized-Buchi " + string this.NumberOfAcceptingSets)
 
             let accString = 
                 if this.NumberOfAcceptingSets = 0 then 
@@ -98,41 +103,34 @@ type GNBA<'T, 'L when 'T: comparison and 'L : comparison> =
                     |> List.map (fun i -> "Inf(" + string(i) + ")")
                     |> Util.combineStringsWithSeperator "&"
                 
-
-            s.WriteLine ("Acceptance: " + string(this.NumberOfAcceptingSets) + " " + accString)
+            stringWriter.WriteLine ("Acceptance: " + string this.NumberOfAcceptingSets + " " + accString)
             
-            s.WriteLine "--BODY--"
+            stringWriter.WriteLine "--BODY--"
+
+            let accCondition s = 
+                let accSets = this.AcceptanceSets.[s]
+                if accSets.Count = 0 then 
+                    ""
+                else 
+                    "{"
+                    + 
+                    (accSets
+                    |> Seq.toList
+                    |> List.map string
+                    |> Util.combineStringsWithSeperator " ")
+                    + 
+                    "}"
+
+            stringWriter.WriteLine (NondeterminsticAutomatonSkeleton.printBodyInHanoiFormat stateStringer accCondition this.Skeleton)
             
-            for n in this.States do 
-                let edges = this.Edges.[n]
-                let accSets = this.AcceptanceSets.[n]
+            stringWriter.WriteLine "--END--"
 
-                let accString = 
-                    if accSets.Count = 0 then 
-                        ""
-                    else 
-                        " {"
-                        + 
-                        (accSets
-                        |> Seq.toList
-                        |> List.map (fun x -> string x)
-                        |> Util.combineStringsWithSeperator " ")
-                        + 
-                        "}"
-
-                s.WriteLine("State: " + stateStringer(n) + " " + accString)
-
-                for (g, n') in edges do 
-                    s.WriteLine("[" + DNF.print g + "] " + stateStringer(n'))
-
-            s.WriteLine "--END--"
-
-            s.ToString()
+            stringWriter.ToString()
 
 module GNBA = 
 
     let actuallyUsedAPs(gnba : GNBA<'T, 'L>) = 
-        AutomatonSkeleton.actuallyUsedAPs gnba.Skeleton
+        NondeterminsticAutomatonSkeleton.actuallyUsedAPs gnba.Skeleton
 
     let convertStatesToInt (gnba : GNBA<'T, 'L>)  = 
         let idDict = 
@@ -142,20 +140,8 @@ module GNBA =
 
         {
             GNBA.Skeleton = 
-                {
-                    AutomatonSkeleton.States = 
-                        gnba.Skeleton.States
-                        |> Set.map (fun x -> idDict.[x]);
-                    APs = gnba.Skeleton.APs;
-                    Edges = 
-                        gnba.Skeleton.Edges 
-                        |> Map.toSeq
-                        |> Seq.map 
-                            (fun (k, v) -> 
-                                idDict.[k], v |> List.map (fun (g, s) -> g, idDict.[s])
-                            )
-                        |> Map.ofSeq;
-                }
+                gnba.Skeleton
+                |> NondeterminsticAutomatonSkeleton.mapStates (fun x -> idDict.[x])
 
             InitialStates = 
                 gnba.InitialStates 
@@ -176,7 +162,7 @@ module GNBA =
     
     let mapAPs (f : 'L -> 'U) (gnba : GNBA<'T, 'L>) = 
         {
-            Skeleton = AutomatonSkeleton.mapAPs f gnba.Skeleton
+            Skeleton = NondeterminsticAutomatonSkeleton.mapAPs f gnba.Skeleton
             InitialStates = gnba.InitialStates
             AcceptanceSets = gnba.AcceptanceSets
             NumberOfAcceptingSets = gnba.NumberOfAcceptingSets
@@ -185,11 +171,14 @@ module GNBA =
     let trueAutomaton () : GNBA<int, 'L> = 
         {
             GNBA.Skeleton = {
-                States = set([0])
-                APs = []
-                Edges = 
-                    [0, [DNF.trueDNF, 0]]
-                    |> Map.ofList
+                NondeterminsticAutomatonSkeleton.Skeleton = 
+                    {
+                        States = set([0])
+                        APs = []
+                        Edges = 
+                            [0, [DNF.trueDNF, Set.singleton 0]]
+                            |> Map.ofList
+                    }
             }
             InitialStates = set([0])
             AcceptanceSets = 
@@ -201,11 +190,14 @@ module GNBA =
     let falseAutomaton () : GNBA<int, 'L> = 
         {
             GNBA.Skeleton = {
-                States = set([0])
-                APs = []
-                Edges = 
-                    [0, List.empty]
-                    |> Map.ofList
+                NondeterminsticAutomatonSkeleton.Skeleton = 
+                    {
+                        States = set([0])
+                        APs = []
+                        Edges = 
+                            [0, List.empty]
+                            |> Map.ofList
+                    }
             }
             InitialStates = set([0])
             AcceptanceSets = 
@@ -223,22 +215,22 @@ module GNBA =
     let bringToSameAPs (autList : list<GNBA<'T, 'L>>) =
         autList
         |> List.map (fun x -> x.Skeleton)
-        |> AutomatonSkeleton.bringSkeletonsToSameAps 
+        |> NondeterminsticAutomatonSkeleton.bringSkeletonsToSameAps 
         |> List.mapi (fun i x -> 
             {autList.[i] with Skeleton = x}
             )
 
     let bringPairToSameAPs (gnba1 : GNBA<'T, 'L>) (gnba2 : GNBA<'U, 'L>) =
-        let sk1, sk2 = AutomatonSkeleton.bringSkeletonPairToSameAps gnba1.Skeleton gnba2.Skeleton
+        let sk1, sk2 = NondeterminsticAutomatonSkeleton.bringSkeletonPairToSameAps gnba1.Skeleton gnba2.Skeleton
 
         {gnba1 with Skeleton = sk1}, {gnba2 with Skeleton = sk2}
 
     let addAPs (aps : list<'L>)  (gnba : GNBA<'T, 'L>) =
-        {gnba with Skeleton = AutomatonSkeleton.addAPsToSkeleton aps gnba.Skeleton}
+        {gnba with Skeleton = NondeterminsticAutomatonSkeleton.addAPsToSkeleton aps gnba.Skeleton}
 
     let fixAPs (aps : list<'L>)  (gnba : GNBA<'T, 'L>) =
-        {gnba with Skeleton = AutomatonSkeleton.fixAPsToSkeleton aps gnba.Skeleton}
+        {gnba with Skeleton = NondeterminsticAutomatonSkeleton.fixAPsToSkeleton aps gnba.Skeleton}
 
     let projectToTargetAPs (newAPs : list<'L>) (gnba : GNBA<int, 'L>)  = 
-        {gnba with Skeleton = AutomatonSkeleton.projectToTargetAPs newAPs gnba.Skeleton}
+        {gnba with Skeleton = NondeterminsticAutomatonSkeleton.projectToTargetAPs newAPs gnba.Skeleton}
 

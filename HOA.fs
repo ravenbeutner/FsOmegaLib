@@ -48,7 +48,7 @@ type AutomatonHeader =
 
 type AutomatonBody = 
     {
-        StateMap : Map<int, Set<int> * list<DNF<int> * int>>
+        StateMap : Map<int, Set<int> * list<DNF<int> * Set<int>>>
     }
 
 type HoaAutomaton = 
@@ -225,8 +225,8 @@ module Parser =
 
             pipe2 
                 guardParser
-                (ws >>. pint32)
-                (fun g t -> g, t)
+                (ws >>. sepBy (pint32 .>> ws) (skipChar '&' .>> ws))
+                (fun g t -> g, set t)
 
         let stateParser = 
             let stateHeadParser = 

@@ -18,6 +18,8 @@
 module FsOmegaLib.AutomatonSkeleton
 
 open System 
+open System.IO 
+
 open SAT 
 
 exception private NotWellFormedException of String
@@ -26,7 +28,7 @@ type AutomatonSkeleton<'T, 'L when 'T: comparison and 'L : comparison> =
     {
         States : Set<'T>
         APs: list<'L>
-        Edges: Map<'T, list<DNF<int> * 'T>>
+        Edges: Map<'T, list<DNF<int> * Set<'T>>> // For each state, we give a list iof edges which have sets as targets representing a conjunction
     }
 
 module AutomatonSkeleton = 
@@ -49,6 +51,43 @@ module AutomatonSkeleton =
             Edges = skeleton.Edges
         }
 
+    let mapStates (f : 'T -> 'S) (skeleton : AutomatonSkeleton<'T, 'L>) = 
+        {
+            States = 
+                skeleton.States
+                |> Set.map f
+            APs = skeleton.APs
+            Edges = 
+                skeleton.Edges
+                |> Map.toSeq
+                |> Seq.map (fun (s, e) -> 
+                    f s, e |> List.map (fun (g, sucs) -> g, sucs |> Set.map f)
+                    )
+                |> Map.ofSeq
+        }
+
+    /// Prints the body in the HANOI format
+    let printBodyInHanoiFormat (stateStringer : 'T -> string) (accCondition : 'T -> string) (skeleton : AutomatonSkeleton<'T, 'L>) = 
+        skeleton.States
+        |> Set.toList
+        |> List.map (fun s -> 
+            let edgesStr = 
+                skeleton.Edges.[s]
+                |> List.map (fun (g, s') -> 
+                    let sucStatesStr = 
+                        s' 
+                        |> Set.toList
+                        |> List.map stateStringer
+                        |> Util.combineStringsWithSeperator " & "
+                    
+                    "[" + DNF.print g + "] " + sucStatesStr
+                    )
+                |> Util.combineStringsWithSeperator "\n"
+
+            "State: " + stateStringer s + " " + accCondition s + "\n" + edgesStr
+            )
+        |> Util.combineStringsWithSeperator "\n"
+
     let findError (skeleton : AutomatonSkeleton<'T, 'L>) = 
         try 
             skeleton.States
@@ -58,9 +97,12 @@ module AutomatonSkeleton =
 
                 skeleton.Edges.[x]
                 |> List.iter (fun (g, t) -> 
-                    if skeleton.States.Contains t |> not then 
-                        raise <| NotWellFormedException $"State $A{t} is a successor of states %A{x} but not defined as a state"
-
+                    t 
+                    |> Set.iter (fun s -> 
+                        if skeleton.States.Contains s |> not then 
+                            raise <| NotWellFormedException $"State $A{s} is a conjunctive successor of states %A{x} but not defined as a state"
+                        )
+                    
                     g 
                     |> DNF.atoms
                     |> Set.iter (fun i -> 

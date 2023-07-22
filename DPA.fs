@@ -21,13 +21,13 @@ open System
 open System.IO
 
 open SAT
-open AutomatonSkeleton
+open NondeterminsticAutomatonSkeleton
 open AbstractAutomaton
 
 exception private NotWellFormedException of String
 type DPA<'T, 'L when 'T: comparison and 'L : comparison> = 
     {
-        Skeleton : AutomatonSkeleton<'T, 'L>
+        Skeleton : NondeterminsticAutomatonSkeleton<'T, 'L>
         InitialState : 'T
         Color : Map<'T, int>
     }
@@ -43,11 +43,11 @@ type DPA<'T, 'L when 'T: comparison and 'L : comparison> =
 
     interface AbstractAutomaton<'T, 'L> with
         member this.Skeleton = 
-            this.Skeleton
+            this.Skeleton.Skeleton
 
         member this.FindError() = 
             try 
-                match AutomatonSkeleton.findError this.Skeleton with 
+                match NondeterminsticAutomatonSkeleton.findError this.Skeleton with 
                 | Some err -> 
                     raise <| NotWellFormedException err 
                 | None -> ()
@@ -66,16 +66,21 @@ type DPA<'T, 'L when 'T: comparison and 'L : comparison> =
             | NotWellFormedException msg -> Some msg
 
         member this.ToHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) =
-            let s = new StringWriter() 
+            let stringWriter = new StringWriter() 
 
-            s.WriteLine("HOA: v1")
+            stringWriter.WriteLine("HOA: v1")
 
-            s.WriteLine ("States: " + string(this.States.Count))
+            stringWriter.WriteLine ("States: " + string this.States.Count)
             
-            s.WriteLine ("Start: " + stateStringer(this.InitialState))
+            stringWriter.WriteLine ("Start: " + stateStringer this.InitialState)
 
-            s.WriteLine ("AP: " + string(this.APs.Length) + " " + List.fold (fun s x -> s + " \"" + alphStringer(x) + "\"") "" this.APs)
+            let apsString = 
+                this.APs 
+                |> List.map (fun x -> "\"" + alphStringer(x) + "\"") 
+                |> Util.combineStringsWithSeperator " "
 
+            stringWriter.WriteLine ("AP: " + string(this.APs.Length) + " " + apsString)
+             
             let rec createParityString c = 
                 if c = 0 then 
                     "Inf(0)"
@@ -88,26 +93,23 @@ type DPA<'T, 'L when 'T: comparison and 'L : comparison> =
             let maxColour = 
                 this.Color |> Map.toSeq |> Seq.map snd |> Seq.max
 
-            s.WriteLine ("acc-name: parity max even " + string(maxColour + 1))
-            s.WriteLine ("Acceptance: " + string(maxColour + 1) + " " + createParityString maxColour)
-
-            s.WriteLine "--BODY--"
+            stringWriter.WriteLine ("acc-name: parity max even " + string(maxColour + 1))
+            stringWriter.WriteLine ("Acceptance: " + string(maxColour + 1) + " " + createParityString maxColour)
             
-            for n in this.States do 
-                let edges = this.Edges.[n]
+            stringWriter.WriteLine "--BODY--"
 
-                s.WriteLine("State: " + stateStringer(n) + " " + "{" + string(this.Color.[n]) + "}")
+            let accCondition s = 
+                "{" + string this.Color.[s] + "}"
 
-                for (g, n') in edges do 
-                    s.WriteLine("[" + DNF.print g + "] " + stateStringer(n'))
+            stringWriter.WriteLine (NondeterminsticAutomatonSkeleton.printBodyInHanoiFormat stateStringer accCondition this.Skeleton)
+            
+            stringWriter.WriteLine "--END--"
 
-            s.WriteLine "--END--"
-
-            s.ToString()
-
+            stringWriter.ToString()
+            
 module DPA = 
     let actuallyUsedAPs(dpa : DPA<'T, 'L>) = 
-        AutomatonSkeleton.actuallyUsedAPs dpa.Skeleton
+        NondeterminsticAutomatonSkeleton.actuallyUsedAPs dpa.Skeleton
 
     let convertStatesToInt (dpa : DPA<'T, 'L>)  = 
         let idDict = 
@@ -117,20 +119,8 @@ module DPA =
 
         {
             DPA.Skeleton = 
-                {
-                    AutomatonSkeleton.States = 
-                        dpa.Skeleton.States
-                        |> Set.map (fun x -> idDict.[x]);
-                    APs = dpa.Skeleton.APs;
-                    Edges = 
-                        dpa.Skeleton.Edges 
-                        |> Map.toSeq
-                        |> Seq.map 
-                            (fun (k, v) -> 
-                                idDict.[k], v |> List.map (fun (g, s) -> g, idDict.[s])
-                            )
-                        |> Map.ofSeq;
-                }
+                dpa.Skeleton
+                |> NondeterminsticAutomatonSkeleton.mapStates (fun x -> idDict.[x])
 
             InitialState = idDict.[dpa.InitialState];
 
@@ -143,7 +133,7 @@ module DPA =
     
     let mapAPs (f : 'L -> 'U) (dpa : DPA<'T, 'L>) = 
         {
-            Skeleton = AutomatonSkeleton.mapAPs f dpa.Skeleton
+            Skeleton = NondeterminsticAutomatonSkeleton.mapAPs f dpa.Skeleton
             InitialState = dpa.InitialState
             Color = dpa.Color
         }
@@ -151,11 +141,14 @@ module DPA =
     let trueAutomaton () : DPA<int, 'L> = 
         {
             DPA.Skeleton = {
-                States = set([0])
-                APs = []
-                Edges = 
-                    [0, [DNF.trueDNF, 0]]
-                    |> Map.ofList
+                NondeterminsticAutomatonSkeleton.Skeleton = 
+                    {
+                        States = set([0])
+                        APs = []
+                        Edges = 
+                            [0, [DNF.trueDNF, Set.singleton 0]]
+                            |> Map.ofList
+                    }
             }
             InitialState = 0
             Color = [0, 0] |> Map.ofList
@@ -164,11 +157,14 @@ module DPA =
     let falseAutomaton () : DPA<int, 'L> = 
         {
             DPA.Skeleton = {
-                States = set([0])
-                APs = []
-                Edges = 
-                    [0, List.empty]
-                    |> Map.ofList
+                NondeterminsticAutomatonSkeleton.Skeleton = 
+                    {
+                        States = set([0])
+                        APs = []
+                        Edges = 
+                            [0, List.empty]
+                            |> Map.ofList
+                    }
             }
             InitialState = 0
             Color = [0, 1] |> Map.ofList
@@ -183,21 +179,21 @@ module DPA =
     let bringToSameAPs (autList : list<DPA<'T, 'L>>) =
         autList
         |> List.map (fun x -> x.Skeleton)
-        |> AutomatonSkeleton.bringSkeletonsToSameAps 
+        |> NondeterminsticAutomatonSkeleton.bringSkeletonsToSameAps 
         |> List.mapi (fun i x -> 
             {autList.[i] with Skeleton = x}
             )
 
     let bringPairToSameAPs (dpa1 : DPA<'T, 'L>) (dpa2 : DPA<'U, 'L>) =
-        let sk1, sk2 = AutomatonSkeleton.bringSkeletonPairToSameAps dpa1.Skeleton dpa2.Skeleton
+        let sk1, sk2 = NondeterminsticAutomatonSkeleton.bringSkeletonPairToSameAps dpa1.Skeleton dpa2.Skeleton
 
         {dpa1 with Skeleton = sk1}, {dpa2 with Skeleton = sk2}
 
     let addAPs (aps : list<'L>)  (dpa : DPA<'T, 'L>) =
-        {dpa with Skeleton = AutomatonSkeleton.addAPsToSkeleton aps dpa.Skeleton}
+        {dpa with Skeleton = NondeterminsticAutomatonSkeleton.addAPsToSkeleton aps dpa.Skeleton}
 
     let fixAPs (aps : list<'L>)  (dpa : DPA<'T, 'L>) =
-        {dpa with Skeleton = AutomatonSkeleton.fixAPsToSkeleton aps dpa.Skeleton}
+        {dpa with Skeleton = NondeterminsticAutomatonSkeleton.fixAPsToSkeleton aps dpa.Skeleton}
 
     let projectToTargetAPs (newAPs : list<'L>) (dpa : DPA<int, 'L>)  = 
-        {dpa with Skeleton = AutomatonSkeleton.projectToTargetAPs newAPs dpa.Skeleton}
+        {dpa with Skeleton = NondeterminsticAutomatonSkeleton.projectToTargetAPs newAPs dpa.Skeleton}

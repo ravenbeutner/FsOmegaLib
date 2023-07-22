@@ -23,6 +23,7 @@ open System.IO
 open Util.SubprocessUtil
 open HOA
 open AbstractAutomaton
+open AutomatonSkeleton
 open GNBA
 open NBA
 open DPA
@@ -54,6 +55,22 @@ module Effort =
 
 
 module private HoaConversion = 
+
+    let private extractSkeletonFromHoa (hoaAut : HoaAutomaton) = 
+        let header = hoaAut.Header
+        let body = hoaAut.Body
+
+        {
+            AutomatonSkeleton.States = body.StateMap.Keys |> set
+            APs = header.APs.Value;
+            Edges = 
+                body.StateMap
+                |> Map.toSeq
+                |> Seq.map (fun (k, (_, e)) -> k, e) 
+                |> Map.ofSeq
+        }
+
+
     let convertHoaToGNBA (hoaAut : HoaAutomaton) = 
         let header = hoaAut.Header
         let body = hoaAut.Body
@@ -76,25 +93,13 @@ module private HoaConversion =
         {
             GNBA.Skeleton = 
                 {
-                    States = set([0..header.States.Value - 1]);
-                    APs = header.APs.Value;
-                    Edges = 
-                        body.StateMap
-                        |> Map.toSeq
-                        |> Seq.map 
-                            (fun (k, (_, e)) -> 
-                                k, e
-                            ) 
-                        |> Map.ofSeq
+                    NondeterminsticAutomatonSkeleton.Skeleton = extractSkeletonFromHoa hoaAut
                 }
             InitialStates = header.Start |> set
             AcceptanceSets = 
                 body.StateMap
                 |> Map.toSeq
-                |> Seq.map 
-                    (fun (k, (a, _)) -> 
-                        k, a
-                    ) 
+                |> Seq.map (fun (k, (a, _)) -> k, a) 
                 |> Map.ofSeq
             NumberOfAcceptingSets = numberOfAccSets
         }
@@ -109,16 +114,7 @@ module private HoaConversion =
         {
             NBA.Skeleton = 
                 {
-                    States = set([0..hoaAut.Header.States.Value - 1]);
-                    APs = hoaAut.Header.APs.Value;
-                    Edges = 
-                        body.StateMap
-                        |> Map.toSeq
-                        |> Seq.map 
-                            (fun (k, (_, e)) -> 
-                                k, e
-                            ) 
-                        |> Map.ofSeq
+                    NondeterminsticAutomatonSkeleton.Skeleton = extractSkeletonFromHoa hoaAut
                 }
             InitialStates = hoaAut.Header.Start |> set
             AcceptingStates = 
@@ -146,16 +142,7 @@ module private HoaConversion =
         {
             DPA.Skeleton = 
                 {
-                    States = set([0..hoaAut.Header.States.Value - 1]);
-                    APs = hoaAut.Header.APs.Value;
-                    Edges = 
-                        body.StateMap
-                        |> Map.toSeq
-                        |> Seq.map 
-                            (fun (k, (_, e)) -> 
-                                k, e
-                            ) 
-                        |> Map.ofSeq
+                    NondeterminsticAutomatonSkeleton.Skeleton = extractSkeletonFromHoa hoaAut
                 }
             InitialState = hoaAut.Header.Start |> List.head
             Color = 

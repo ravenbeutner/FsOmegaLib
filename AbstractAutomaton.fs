@@ -19,9 +19,16 @@ module FsOmegaLib.AbstractAutomaton
 
 open System
 open AutomatonSkeleton
+open NondeterminsticAutomatonSkeleton
 
 type AbstractAutomaton<'T, 'L when 'T: comparison and 'L : comparison> =
     abstract member ToHoaString : stateToString:('T -> String) -> apToString:('L -> String) -> String
     abstract member FindError : unit -> Option<String>
     abstract member Skeleton : AutomatonSkeleton<'T, 'L>
 
+(*
+type AbstractNondeterminsticAutomaton<'T, 'L when 'T: comparison and 'L : comparison> =
+    abstract member ToHoaString : stateToString:('T -> String) -> apToString:('L -> String) -> String
+    abstract member FindError : unit -> Option<String>
+    abstract member Skeleton : NondeterminsticAutomatonSkeleton<'T, 'L>
+*)
