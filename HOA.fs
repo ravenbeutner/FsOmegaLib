@@ -37,7 +37,7 @@ type private IntermediateAutomatonHeader =
     {
         HoaVersion : option<string>
         States : option<int>
-        Start : list<int>
+        Start : list<list<int>>
         APs : option<list<String>>
         Properties : list<String> 
         Tool : option<list<String>>
@@ -48,7 +48,7 @@ type private IntermediateAutomatonHeader =
 
 type AutomatonHeader = 
     {
-        Start : list<int>
+        Start : list<list<int>>
         APs : list<String>
         Acceptance : int * AcceptanceCondition
         AcceptanceName : String
@@ -126,7 +126,7 @@ module Parser =
                 |>> fun x -> {header with States = Some x}
 
             let startParser = 
-                skipString "Start:" >>. wsNoNewline >>. pint32
+                skipString "Start:" >>. wsNoNewline >>. (sepBy1 (pint32 .>> wsNoNewline) (skipChar '&' .>> wsNoNewline))
                 |>> fun x -> {header with Start = x::header.Start}
 
 

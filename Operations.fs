@@ -27,6 +27,7 @@ open AutomatonSkeleton
 open GNBA
 open NBA
 open DPA
+open APA
 open LTL
 
 type FsOmegaLibError = 
@@ -88,14 +89,21 @@ module private HoaConversion =
         let numberOfAccSets, acc =  header.Acceptance
 
         if isGNBAAccCondition acc |> not then 
-            raise <| ConversionException {Info = $"Could not convert HANOI automaton to GNBA"; DebugInfo = $"No valid Acceptance condition for a GNBA: %A{header.Acceptance}"}
+            raise <| ConversionException {Info = $"Could not convert HANOI automaton to GNBA"; DebugInfo = $"Could not convert HANOI automaton to GNBA; No valid Acceptance condition for a GNBA: %A{header.Acceptance}"}
 
         {
             GNBA.Skeleton = 
                 {
                     NondeterminsticAutomatonSkeleton.Skeleton = extractSkeletonFromHoa hoaAut
                 }
-            InitialStates = header.Start |> set
+            InitialStates = 
+                header.Start
+                |> List.map (
+                    function 
+                    | [x] -> x 
+                    | _ -> raise <| ConversionException {Info = $"Could not convert HANOI automaton to GNBA"; DebugInfo = $"Could not convert HANOI automaton to GNBA; The HANOI automataon uses conjunctions of initial states"}
+                )
+                |> set
             AcceptanceSets = 
                 body.StateMap
                 |> Map.toSeq
@@ -108,14 +116,21 @@ module private HoaConversion =
         let body = hoaAut.Body
 
         if hoaAut.Header.Acceptance <> (1, AccAtomInf (PosAcceptanceSet 0)) then 
-            raise <| ConversionException {Info = $"Could not convert HANOI automaton to NBA"; DebugInfo = $"No valid Acceptance condition for a NBA: %A{hoaAut.Header.Acceptance}"}
+            raise <| ConversionException {Info = $"Could not convert HANOI automaton to NBA"; DebugInfo = $"Could not convert HANOI automaton to NBA; No valid Acceptance condition for a NBA: %A{hoaAut.Header.Acceptance}"}
 
         {
             NBA.Skeleton = 
                 {
                     NondeterminsticAutomatonSkeleton.Skeleton = extractSkeletonFromHoa hoaAut
                 }
-            InitialStates = hoaAut.Header.Start |> set
+            InitialStates = 
+                hoaAut.Header.Start
+                |> List.map (
+                    function 
+                    | [x] -> x 
+                    | _ -> raise <| ConversionException {Info = $"Could not convert HANOI automaton to NBA"; DebugInfo = $"Could not convert HANOI automaton to NBA; The HANOI automataon uses conjunctions of initial states"}
+                )
+                |> set
             AcceptingStates = 
                 body.StateMap
                 |> Map.toSeq
@@ -136,14 +151,40 @@ module private HoaConversion =
 
         let _, acc =  hoaAut.Header.Acceptance
         if isParityCondition acc |> not then 
-            raise <| ConversionException {Info = $"Could not convert HANOI automaton to DPA"; DebugInfo = $"No valid Acceptance condition for a parity automaton: %A{hoaAut.Header.Acceptance}"}
+            raise <| ConversionException {Info = $"Could not convert HANOI automaton to DPA"; DebugInfo = $"Could not convert HANOI automaton to DPA; No valid Acceptance condition for a parity automaton: %A{hoaAut.Header.Acceptance}"}
 
         {
             DPA.Skeleton = 
                 {
                     NondeterminsticAutomatonSkeleton.Skeleton = extractSkeletonFromHoa hoaAut
                 }
-            InitialState = hoaAut.Header.Start |> List.head
+            InitialState = 
+                match hoaAut.Header.Start with 
+                | [[x]] -> x
+                | _ -> raise <| ConversionException {Info = $"Could not convert HANOI automaton to DPA"; DebugInfo = $"Could not convert HANOI automaton to DPA; The HOA automataon does not define a unique initial state"}
+
+            Color = 
+                body.StateMap
+                |> Map.map (fun _ x -> x |> fst |> Set.toList |> List.head)
+        }
+
+    let convertHoaToAPA (hoaAut : HoaAutomaton) = 
+        let body = hoaAut.Body
+
+        // Check that the acc condition is a max-even condition
+        let rec isParityCondition (_ : AcceptanceCondition) = 
+            true
+
+        let _, acc =  hoaAut.Header.Acceptance
+        if isParityCondition acc |> not then 
+            raise <| ConversionException {Info = $"Could not convert HANOI automaton to APA"; DebugInfo = $"Could not convert HANOI automaton to APA; No valid Acceptance condition for a parity automaton: %A{hoaAut.Header.Acceptance}"}
+
+        {
+            APA.Skeleton = extractSkeletonFromHoa hoaAut
+            InitialStates = 
+                hoaAut.Header.Start
+                |> List.map set 
+                |> set
             Color = 
                 body.StateMap
                 |> Map.map (fun _ x -> x |> fst |> Set.toList |> List.head)
@@ -169,6 +210,13 @@ module private HoaConversion =
             convertHoaToDPA hoa
             |> DPA.mapAPs f
         | Error err -> raise <| ConversionException {Info = $"Could not parse HANOI automaton"; DebugInfo = $"Could not parse HANOI automaton into DPA: %s{err}"}
+    
+    let resultToAPA (res: String) (f : String -> 'L) = 
+        match HOA.Parser.parseHoaAutomaton res with 
+        | Ok hoa -> 
+            convertHoaToAPA hoa
+            |> APA.mapAPs f
+        | Error err -> raise <| ConversionException {Info = $"Could not parse HANOI automaton"; DebugInfo = $"Could not parse HANOI automaton into APA: %s{err}"}
             
 
 module AutomatonConversions = 
