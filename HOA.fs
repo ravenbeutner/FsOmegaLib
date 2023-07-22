@@ -33,7 +33,7 @@ type AcceptanceCondition =
     | AccAnd of AcceptanceCondition * AcceptanceCondition
     | AccOr of AcceptanceCondition * AcceptanceCondition
 
-type AutomatonHeader = 
+type private IntermediateAutomatonHeader = 
     {
         HoaVersion : option<string>
         States : option<int>
@@ -44,6 +44,14 @@ type AutomatonHeader =
         Name : option<String>
         Acceptance : option<int * AcceptanceCondition>
         AcceptanceName : option<String>
+    }
+
+type AutomatonHeader = 
+    {
+        Start : list<int>
+        APs : list<String>
+        Acceptance : int * AcceptanceCondition
+        AcceptanceName : String
     }
 
 type AutomatonBody = 
@@ -82,7 +90,7 @@ module Parser =
         |>> ignore
     
     let private headerParser =
-        let headerLineParser (header : AutomatonHeader) = 
+        let headerLineParser (header : IntermediateAutomatonHeader) = 
 
             let hoaParser = 
                 skipString "HOA:" >>. wsNoNewline >>. many1Chars (satisfy (fun x -> x <> ' ' && x <> '\n'))
@@ -194,7 +202,7 @@ module Parser =
                 accParser
             ] .>> ws
 
-        let initHeader = 
+        let initHeader: IntermediateAutomatonHeader = 
             {
                 HoaVersion = None
                 States = None
@@ -207,7 +215,7 @@ module Parser =
                 AcceptanceName = None
             }
         
-        let rec headerParserRec (header: AutomatonHeader) =
+        let rec headerParserRec (header: IntermediateAutomatonHeader) =
             (attempt (headerLineParser header) >>= headerParserRec)
             <|>% header
         
@@ -245,7 +253,9 @@ module Parser =
                 (many (edgeParser .>> ws))
                 (fun (id, c) y -> id, c, y)
 
-        ws >>. many (stateParser .>> ws)
+        skipString "--BODY--" >>. ws >>. 
+        many (stateParser .>> ws)
+        .>> ws .>> skipString "--END--"
         |>> fun x -> 
             x 
             |> List.map (fun (x, y, z) -> (x, (y, z)))
@@ -253,15 +263,41 @@ module Parser =
             |> fun x -> {AutomatonBody.StateMap = x}
 
     let private hoaParser =
-        pipe3 
-            headerParser
-            (ws .>> skipString "--BODY--" .>> ws)
-            (bodyParser .>> ws .>> skipString "--END--" .>> ws .>> eof)
-            (fun x _ y -> {HoaAutomaton.Header = x; Body = y})
+        tuple2 
+            (headerParser .>> ws)
+            (bodyParser)
+
+    exception private HoaParsingException of String
 
     let parseHoaAutomaton (s: string) =
-        let res = run hoaParser s
-        match res with
-        | Success (res, _, _) -> Result.Ok res
-        | Failure (err, _, _) -> Result.Error err
+        try 
+            let res = run hoaParser s
+
+            let header, body = 
+                match res with
+                | Failure (err, _, _) -> raise <| HoaParsingException err
+                | Success (x, _, _) -> x
+
+            let h : AutomatonHeader = 
+                {
+                    AutomatonHeader.Start = header.Start
+                    APs = 
+                        header.APs
+                        |> Option.defaultWith (fun _ -> raise <| HoaParsingException $"No APs specified")
+                    Acceptance = 
+                        header.Acceptance
+                        |> Option.defaultWith (fun _ -> raise <| HoaParsingException $"No acceptance specified")
+                    AcceptanceName = 
+                        header.AcceptanceName
+                        |> Option.defaultWith (fun _ -> raise <| HoaParsingException $"No acceptance name given")
+                }
+
+            {
+                HoaAutomaton.Header = h
+                Body = body
+            }
+            |> Result.Ok
+        with 
+            | HoaParsingException err -> Result.Error err
+        
 

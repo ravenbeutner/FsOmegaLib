@@ -62,7 +62,7 @@ module private HoaConversion =
 
         {
             AutomatonSkeleton.States = body.StateMap.Keys |> set
-            APs = header.APs.Value;
+            APs = header.APs;
             Edges = 
                 body.StateMap
                 |> Map.toSeq
@@ -85,11 +85,11 @@ module private HoaConversion =
             | AccAnd (l1, l2) -> isGNBAAccCondition l1 && isGNBAAccCondition l2
             | AccOr _ -> false
 
-        let numberOfAccSets =  
-            match header.Acceptance with 
-            | Some (numberOfAccSets: int, acc) when isGNBAAccCondition acc -> numberOfAccSets
-            | _ -> raise <| ConversionException {Info = $"Could not convert HANOI automaton to GNBA"; DebugInfo = $"No valid Acceptance condition for a GNBA: %A{header.Acceptance}"}
-            
+        let numberOfAccSets, acc =  header.Acceptance
+
+        if isGNBAAccCondition acc |> not then 
+            raise <| ConversionException {Info = $"Could not convert HANOI automaton to GNBA"; DebugInfo = $"No valid Acceptance condition for a GNBA: %A{header.Acceptance}"}
+
         {
             GNBA.Skeleton = 
                 {
@@ -107,10 +107,9 @@ module private HoaConversion =
     let convertHoaToNBA (hoaAut : HoaAutomaton) = 
         let body = hoaAut.Body
 
-        match hoaAut.Header.Acceptance with 
-        | Some (1, AccAtomInf (PosAcceptanceSet 0)) -> ()
-        | _ -> raise <| ConversionException {Info = $"Could not convert HANOI automaton to NBA"; DebugInfo = $"No valid Acceptance condition for a NBA: %A{hoaAut.Header.Acceptance}"}
-        
+        if hoaAut.Header.Acceptance <> (1, AccAtomInf (PosAcceptanceSet 0)) then 
+            raise <| ConversionException {Info = $"Could not convert HANOI automaton to NBA"; DebugInfo = $"No valid Acceptance condition for a NBA: %A{hoaAut.Header.Acceptance}"}
+
         {
             NBA.Skeleton = 
                 {
@@ -131,14 +130,14 @@ module private HoaConversion =
     let convertHoaToDPA (hoaAut : HoaAutomaton) = 
         let body = hoaAut.Body
 
+        // Check that the acc condition is a max-even condition
         let rec isParityCondition (_ : AcceptanceCondition) = 
-            // TODO
             true
 
-        match hoaAut.Header.Acceptance with 
-        | Some (_, acc) when isParityCondition acc -> ()
-        | _ -> raise <| ConversionException {Info = $"Could not convert HANOI automaton to DPA"; DebugInfo = $"No valid Acceptance condition for a parity automaton: %A{hoaAut.Header.Acceptance}"}
-        
+        let _, acc =  hoaAut.Header.Acceptance
+        if isParityCondition acc |> not then 
+            raise <| ConversionException {Info = $"Could not convert HANOI automaton to DPA"; DebugInfo = $"No valid Acceptance condition for a parity automaton: %A{hoaAut.Header.Acceptance}"}
+
         {
             DPA.Skeleton = 
                 {
