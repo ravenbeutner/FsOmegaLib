@@ -12,7 +12,6 @@
     <Compile Include="SAT.fs" />
     <Compile Include="HOA.fs" />
     <Compile Include="AutomatonSkeleton.fs" />
-    <Compile Include="NondeterminsticAutomatonSkeleton.fs" />
     <Compile Include="AbstractAutomaton.fs" />
     <Compile Include="GNBA.fs" />
     <Compile Include="NBA.fs" />

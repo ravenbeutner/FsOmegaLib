@@ -21,14 +21,14 @@ open System
 open System.IO
 
 open SAT
-open NondeterminsticAutomatonSkeleton
+open AutomatonSkeleton
 open AbstractAutomaton
 
 exception private NotWellFormedException of String
 
 type NBA<'T, 'L when 'T: comparison and 'L : comparison> = 
     {
-        Skeleton : NondeterminsticAutomatonSkeleton<'T, 'L>
+        Skeleton : NondeterministicAutomatonSkeleton<'T, 'L>
         InitialStates : Set<'T>
         AcceptingStates: Set<'T>
     }
@@ -44,11 +44,11 @@ type NBA<'T, 'L when 'T: comparison and 'L : comparison> =
 
     interface AbstractAutomaton<'T, 'L> with
         member this.Skeleton = 
-            this.Skeleton.Skeleton
+            NondeterministicAutomatonSkeleton.toAlternatingAutomatonSkeleton this.Skeleton
 
         member this.FindError() = 
             try 
-                match NondeterminsticAutomatonSkeleton.findError this.Skeleton with 
+                match NondeterministicAutomatonSkeleton.findError this.Skeleton with 
                 | Some err -> 
                     raise <| NotWellFormedException err 
                 | None -> ()
@@ -97,7 +97,7 @@ type NBA<'T, 'L when 'T: comparison and 'L : comparison> =
                 else 
                     ""
 
-            stringWriter.WriteLine (NondeterminsticAutomatonSkeleton.printBodyInHanoiFormat stateStringer accCondition this.Skeleton)
+            stringWriter.WriteLine (NondeterministicAutomatonSkeleton.printBodyInHanoiFormat stateStringer accCondition this.Skeleton)
             
             stringWriter.WriteLine "--END--"
 
@@ -107,7 +107,7 @@ type NBA<'T, 'L when 'T: comparison and 'L : comparison> =
 module NBA = 
 
     let actuallyUsedAPs(nba : NBA<'T, 'L>) = 
-        NondeterminsticAutomatonSkeleton.actuallyUsedAPs nba.Skeleton
+        NondeterministicAutomatonSkeleton.actuallyUsedAPs nba.Skeleton
 
     let convertStatesToInt (nba : NBA<'T, 'L>)  = 
         let idDict = 
@@ -118,7 +118,7 @@ module NBA =
         {
             NBA.Skeleton =
                 nba.Skeleton
-                |> NondeterminsticAutomatonSkeleton.mapStates (fun x -> idDict.[x])
+                |> NondeterministicAutomatonSkeleton.mapStates (fun x -> idDict.[x])
 
             InitialStates = 
                 nba.InitialStates 
@@ -131,7 +131,7 @@ module NBA =
     
     let mapAPs (f : 'L -> 'U) (nba : NBA<'T, 'L>) = 
         {
-            Skeleton = NondeterminsticAutomatonSkeleton.mapAPs f nba.Skeleton
+            Skeleton = NondeterministicAutomatonSkeleton.mapAPs f nba.Skeleton
             InitialStates = nba.InitialStates
             AcceptingStates = nba.AcceptingStates
         }
@@ -139,14 +139,11 @@ module NBA =
     let trueAutomaton () : NBA<int, 'L> = 
         {
             NBA.Skeleton = {
-                NondeterminsticAutomatonSkeleton.Skeleton = 
-                    {
-                        States = set([0])
-                        APs = []
-                        Edges = 
-                            [0, [DNF.trueDNF, Set.singleton 0]]
-                            |> Map.ofList
-                    }
+                AutomatonSkeleton.States = set([0])
+                APs = []
+                Edges = 
+                    [0, [DNF.trueDNF, 0]]
+                    |> Map.ofList
             }
             InitialStates = set([0])
             AcceptingStates = Set.singleton 0
@@ -155,14 +152,11 @@ module NBA =
     let falseAutomaton () : NBA<int, 'L> = 
         {
             NBA.Skeleton = {
-                NondeterminsticAutomatonSkeleton.Skeleton = 
-                    {
-                        States = set([0])
-                        APs = []
-                        Edges = 
-                            [0, List.empty]
-                            |> Map.ofList
-                    }
+                AutomatonSkeleton.States = set([0])
+                APs = []
+                Edges = 
+                    [0, List.empty]
+                    |> Map.ofList
             }
             InitialStates = set([0])
             AcceptingStates = Set.empty
@@ -177,22 +171,22 @@ module NBA =
     let bringToSameAPs (autList : list<NBA<'T, 'L>>) =
         autList
         |> List.map (fun x -> x.Skeleton)
-        |> NondeterminsticAutomatonSkeleton.bringSkeletonsToSameAps 
+        |> NondeterministicAutomatonSkeleton.bringSkeletonsToSameAps 
         |> List.mapi (fun i x -> 
             {autList.[i] with Skeleton = x}
             )
 
-    let bringPairToSameAPs (gnba1 : NBA<'T, 'L>) (gnba2 : NBA<'U, 'L>) =
-        let sk1, sk2 = NondeterminsticAutomatonSkeleton.bringSkeletonPairToSameAps gnba1.Skeleton gnba2.Skeleton
+    let bringPairToSameAPs (gnba1 : NBA<'T, 'L>) (gnba2 : NBA<'T, 'L>) =
+        let sk1, sk2 = NondeterministicAutomatonSkeleton.bringSkeletonPairToSameAps gnba1.Skeleton gnba2.Skeleton
 
         {gnba1 with Skeleton = sk1}, {gnba2 with Skeleton = sk2}
 
 
     let addAPs (aps : list<'L>)  (gnba : NBA<'T, 'L>) =
-        {gnba with Skeleton = NondeterminsticAutomatonSkeleton.addAPsToSkeleton aps gnba.Skeleton}
+        {gnba with Skeleton = NondeterministicAutomatonSkeleton.addAPsToSkeleton aps gnba.Skeleton}
 
     let fixAPs (aps : list<'L>)  (gnba : NBA<'T, 'L>) =
-        {gnba with Skeleton = NondeterminsticAutomatonSkeleton.fixAPsToSkeleton aps gnba.Skeleton}
+        {gnba with Skeleton = NondeterministicAutomatonSkeleton.fixAPsToSkeleton aps gnba.Skeleton}
 
     let projectToTargetAPs (newAPs : list<'L>) (gnba : NBA<int, 'L>)  = 
-        {gnba with Skeleton = NondeterminsticAutomatonSkeleton.projectToTargetAPs newAPs gnba.Skeleton}
+        {gnba with Skeleton = NondeterministicAutomatonSkeleton.projectToTargetAPs newAPs gnba.Skeleton}

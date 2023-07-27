@@ -24,12 +24,14 @@ open System.IO
 open SAT
 open AutomatonSkeleton
 open AbstractAutomaton
+open DPA
+open NBA
 
 exception private NotWellFormedException of String
 
 type APA<'T, 'L when 'T: comparison and 'L : comparison> = 
     {
-        Skeleton : AutomatonSkeleton<'T, 'L>
+        Skeleton : AlternatingAutomatonSkeleton<'T, 'L>
         InitialStates : Set<Set<'T>> // Disjunction of Conjunction
         Color : Map<'T, int>
     }
@@ -49,7 +51,7 @@ type APA<'T, 'L when 'T: comparison and 'L : comparison> =
 
         member this.FindError() = 
             try 
-                match AutomatonSkeleton.findError this.Skeleton with 
+                match AlternatingAutomatonSkeleton.findError this.Skeleton with 
                 | Some err -> 
                     raise <| NotWellFormedException err 
                 | None -> ()
@@ -113,7 +115,7 @@ type APA<'T, 'L when 'T: comparison and 'L : comparison> =
             let accCondition s = 
                 "{" + string this.Color.[s] + "}"
 
-            stringWriter.WriteLine (AutomatonSkeleton.printBodyInHanoiFormat stateStringer accCondition this.Skeleton)
+            stringWriter.WriteLine (AlternatingAutomatonSkeleton.printBodyInHanoiFormat stateStringer accCondition this.Skeleton)
             
             stringWriter.WriteLine "--END--"
 
@@ -122,7 +124,7 @@ type APA<'T, 'L when 'T: comparison and 'L : comparison> =
          
 module APA = 
     let actuallyUsedAPs(apa : APA<'T, 'L>) = 
-        AutomatonSkeleton.actuallyUsedAPs apa.Skeleton
+        AlternatingAutomatonSkeleton.actuallyUsedAPs apa.Skeleton
 
     let convertStatesToInt (apa : APA<'T, 'L>)  = 
         let idDict = 
@@ -133,7 +135,7 @@ module APA =
         {
             APA.Skeleton = 
                 apa.Skeleton
-                |> AutomatonSkeleton.mapStates (fun x -> idDict.[x])
+                |> AlternatingAutomatonSkeleton.mapStates (fun x -> idDict.[x])
 
             InitialStates = 
                 apa.InitialStates
@@ -145,10 +147,31 @@ module APA =
                 |> Seq.map (fun (k, v) -> idDict.[k], v)
                 |> Map.ofSeq;
         }
+
+    let fromDPA (dpa : DPA<'T, 'L>) = 
+        {
+            APA.Skeleton = 
+                dpa.Skeleton
+                |> NondeterministicAutomatonSkeleton.toAlternatingAutomatonSkeleton
+            InitialStates = dpa.InitialState |> Set.singleton |> Set.singleton
+            Color = dpa.Color
+        }
+    
+    let fromNBA (nba : NBA<'T, 'L>) = 
+        {
+            APA.Skeleton = 
+                nba.Skeleton
+                |> NondeterministicAutomatonSkeleton.toAlternatingAutomatonSkeleton
+            InitialStates = nba.InitialStates |> Set.singleton
+            Color = 
+                nba.States
+                |> Seq.map (fun x -> x, if nba.AcceptingStates.Contains x then 2 else 1)
+                |> Map.ofSeq
+        }
     
     let mapAPs (f : 'L -> 'U) (apa : APA<'T, 'L>) = 
         {
-            Skeleton = AutomatonSkeleton.mapAPs f apa.Skeleton
+            Skeleton = AlternatingAutomatonSkeleton.mapAPs f apa.Skeleton
             InitialStates = apa.InitialStates
             Color = apa.Color
         }
@@ -157,7 +180,7 @@ module APA =
         {
             APA.Skeleton = 
                 {
-                    AutomatonSkeleton.States = set([0])
+                    AlternatingAutomatonSkeleton.States = set([0])
                     APs = []
                     Edges = 
                         [0, [DNF.trueDNF, Set.singleton 0]]
@@ -190,21 +213,21 @@ module APA =
     let bringToSameAPs (autList : list<APA<'T, 'L>>) =
         autList
         |> List.map (fun x -> x.Skeleton)
-        |> AutomatonSkeleton.bringSkeletonsToSameAps 
+        |> AlternatingAutomatonSkeleton.bringSkeletonsToSameAps 
         |> List.mapi (fun i x -> 
             {autList.[i] with Skeleton = x}
             )
 
-    let bringPairToSameAPs (apa1 : APA<'T, 'L>) (apa2 : APA<'U, 'L>) =
-        let sk1, sk2 = AutomatonSkeleton.bringSkeletonPairToSameAps apa1.Skeleton apa2.Skeleton
+    let bringPairToSameAPs (apa1 : APA<'T, 'L>) (apa2 : APA<'T, 'L>) =
+        let sk1, sk2 = AlternatingAutomatonSkeleton.bringSkeletonPairToSameAps apa1.Skeleton apa2.Skeleton
 
         {apa1 with Skeleton = sk1}, {apa2 with Skeleton = sk2}
 
     let addAPs (aps : list<'L>)  (apa : APA<'T, 'L>) =
-        {apa with Skeleton = AutomatonSkeleton.addAPsToSkeleton aps apa.Skeleton}
+        {apa with Skeleton = AlternatingAutomatonSkeleton.addAPsToSkeleton aps apa.Skeleton}
 
     let fixAPs (aps : list<'L>)  (apa : APA<'T, 'L>) =
-        {apa with Skeleton = AutomatonSkeleton.fixAPsToSkeleton aps apa.Skeleton}
+        {apa with Skeleton = AlternatingAutomatonSkeleton.fixAPsToSkeleton aps apa.Skeleton}
 
     let projectToTargetAPs (newAPs : list<'L>) (apa : APA<int, 'L>)  = 
-        {apa with Skeleton = AutomatonSkeleton.projectToTargetAPs newAPs apa.Skeleton}
+        {apa with Skeleton = AlternatingAutomatonSkeleton.projectToTargetAPs newAPs apa.Skeleton}

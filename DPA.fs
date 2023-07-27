@@ -21,13 +21,13 @@ open System
 open System.IO
 
 open SAT
-open NondeterminsticAutomatonSkeleton
+open AutomatonSkeleton
 open AbstractAutomaton
 
 exception private NotWellFormedException of String
 type DPA<'T, 'L when 'T: comparison and 'L : comparison> = 
     {
-        Skeleton : NondeterminsticAutomatonSkeleton<'T, 'L>
+        Skeleton : NondeterministicAutomatonSkeleton<'T, 'L>
         InitialState : 'T
         Color : Map<'T, int>
     }
@@ -43,11 +43,11 @@ type DPA<'T, 'L when 'T: comparison and 'L : comparison> =
 
     interface AbstractAutomaton<'T, 'L> with
         member this.Skeleton = 
-            this.Skeleton.Skeleton
+            NondeterministicAutomatonSkeleton.toAlternatingAutomatonSkeleton this.Skeleton
 
         member this.FindError() = 
             try 
-                match NondeterminsticAutomatonSkeleton.findError this.Skeleton with 
+                match NondeterministicAutomatonSkeleton.findError this.Skeleton with 
                 | Some err -> 
                     raise <| NotWellFormedException err 
                 | None -> ()
@@ -101,7 +101,7 @@ type DPA<'T, 'L when 'T: comparison and 'L : comparison> =
             let accCondition s = 
                 "{" + string this.Color.[s] + "}"
 
-            stringWriter.WriteLine (NondeterminsticAutomatonSkeleton.printBodyInHanoiFormat stateStringer accCondition this.Skeleton)
+            stringWriter.WriteLine (NondeterministicAutomatonSkeleton.printBodyInHanoiFormat stateStringer accCondition this.Skeleton)
             
             stringWriter.WriteLine "--END--"
 
@@ -109,7 +109,7 @@ type DPA<'T, 'L when 'T: comparison and 'L : comparison> =
             
 module DPA = 
     let actuallyUsedAPs(dpa : DPA<'T, 'L>) = 
-        NondeterminsticAutomatonSkeleton.actuallyUsedAPs dpa.Skeleton
+        NondeterministicAutomatonSkeleton.actuallyUsedAPs dpa.Skeleton
 
     let convertStatesToInt (dpa : DPA<'T, 'L>)  = 
         let idDict = 
@@ -120,7 +120,7 @@ module DPA =
         {
             DPA.Skeleton = 
                 dpa.Skeleton
-                |> NondeterminsticAutomatonSkeleton.mapStates (fun x -> idDict.[x])
+                |> NondeterministicAutomatonSkeleton.mapStates (fun x -> idDict.[x])
 
             InitialState = idDict.[dpa.InitialState];
 
@@ -133,7 +133,7 @@ module DPA =
     
     let mapAPs (f : 'L -> 'U) (dpa : DPA<'T, 'L>) = 
         {
-            Skeleton = NondeterminsticAutomatonSkeleton.mapAPs f dpa.Skeleton
+            Skeleton = NondeterministicAutomatonSkeleton.mapAPs f dpa.Skeleton
             InitialState = dpa.InitialState
             Color = dpa.Color
         }
@@ -141,14 +141,11 @@ module DPA =
     let trueAutomaton () : DPA<int, 'L> = 
         {
             DPA.Skeleton = {
-                NondeterminsticAutomatonSkeleton.Skeleton = 
-                    {
-                        States = set([0])
-                        APs = []
-                        Edges = 
-                            [0, [DNF.trueDNF, Set.singleton 0]]
-                            |> Map.ofList
-                    }
+                AutomatonSkeleton.States = set([0])
+                APs = []
+                Edges = 
+                    [0, [DNF.trueDNF, 0]]
+                    |> Map.ofList
             }
             InitialState = 0
             Color = [0, 0] |> Map.ofList
@@ -157,14 +154,11 @@ module DPA =
     let falseAutomaton () : DPA<int, 'L> = 
         {
             DPA.Skeleton = {
-                NondeterminsticAutomatonSkeleton.Skeleton = 
-                    {
-                        States = set([0])
-                        APs = []
-                        Edges = 
-                            [0, List.empty]
-                            |> Map.ofList
-                    }
+                AutomatonSkeleton.States = set([0])
+                APs = []
+                Edges = 
+                    [0, List.empty]
+                    |> Map.ofList
             }
             InitialState = 0
             Color = [0, 1] |> Map.ofList
@@ -179,21 +173,21 @@ module DPA =
     let bringToSameAPs (autList : list<DPA<'T, 'L>>) =
         autList
         |> List.map (fun x -> x.Skeleton)
-        |> NondeterminsticAutomatonSkeleton.bringSkeletonsToSameAps 
+        |> NondeterministicAutomatonSkeleton.bringSkeletonsToSameAps 
         |> List.mapi (fun i x -> 
             {autList.[i] with Skeleton = x}
             )
 
-    let bringPairToSameAPs (dpa1 : DPA<'T, 'L>) (dpa2 : DPA<'U, 'L>) =
-        let sk1, sk2 = NondeterminsticAutomatonSkeleton.bringSkeletonPairToSameAps dpa1.Skeleton dpa2.Skeleton
+    let bringPairToSameAPs (dpa1 : DPA<'T, 'L>) (dpa2 : DPA<'T, 'L>) =
+        let sk1, sk2 = NondeterministicAutomatonSkeleton.bringSkeletonPairToSameAps dpa1.Skeleton dpa2.Skeleton
 
         {dpa1 with Skeleton = sk1}, {dpa2 with Skeleton = sk2}
 
     let addAPs (aps : list<'L>)  (dpa : DPA<'T, 'L>) =
-        {dpa with Skeleton = NondeterminsticAutomatonSkeleton.addAPsToSkeleton aps dpa.Skeleton}
+        {dpa with Skeleton = NondeterministicAutomatonSkeleton.addAPsToSkeleton aps dpa.Skeleton}
 
     let fixAPs (aps : list<'L>)  (dpa : DPA<'T, 'L>) =
-        {dpa with Skeleton = NondeterminsticAutomatonSkeleton.fixAPsToSkeleton aps dpa.Skeleton}
+        {dpa with Skeleton = NondeterministicAutomatonSkeleton.fixAPsToSkeleton aps dpa.Skeleton}
 
     let projectToTargetAPs (newAPs : list<'L>) (dpa : DPA<int, 'L>)  = 
-        {dpa with Skeleton = NondeterminsticAutomatonSkeleton.projectToTargetAPs newAPs dpa.Skeleton}
+        {dpa with Skeleton = NondeterministicAutomatonSkeleton.projectToTargetAPs newAPs dpa.Skeleton}

@@ -57,7 +57,7 @@ module Effort =
 
 module private HoaConversion = 
 
-    let private extractSkeletonFromHoa (hoaAut : HoaAutomaton) = 
+    let private extractAlternatingSkeletonFromHoa (hoaAut : HoaAutomaton) = 
         let header = hoaAut.Header
         let body = hoaAut.Body
 
@@ -70,6 +70,13 @@ module private HoaConversion =
                 |> Seq.map (fun (k, (_, e)) -> k, e) 
                 |> Map.ofSeq
         }
+
+    let private extractNondeterministicSkeletonFromHoa (hoaAut : HoaAutomaton) = 
+        hoaAut
+        |> extractAlternatingSkeletonFromHoa
+        |> NondeterministicAutomatonSkeleton.tryFromAlternatingAutomatonSkeleton
+        |> Option.defaultWith 
+            (fun _ -> raise <| ConversionException {Info = $"Could not convert HANOI automaton"; DebugInfo = $"Could not convert HANOI automaton; The HANOI automaton has universal branching"})
 
 
     let convertHoaToGNBA (hoaAut : HoaAutomaton) = 
@@ -93,9 +100,7 @@ module private HoaConversion =
 
         {
             GNBA.Skeleton = 
-                {
-                    NondeterminsticAutomatonSkeleton.Skeleton = extractSkeletonFromHoa hoaAut
-                }
+                extractNondeterministicSkeletonFromHoa hoaAut
             InitialStates = 
                 header.Start
                 |> List.map (
@@ -120,9 +125,7 @@ module private HoaConversion =
 
         {
             NBA.Skeleton = 
-                {
-                    NondeterminsticAutomatonSkeleton.Skeleton = extractSkeletonFromHoa hoaAut
-                }
+                extractNondeterministicSkeletonFromHoa hoaAut
             InitialStates = 
                 hoaAut.Header.Start
                 |> List.map (
@@ -155,14 +158,11 @@ module private HoaConversion =
 
         {
             DPA.Skeleton = 
-                {
-                    NondeterminsticAutomatonSkeleton.Skeleton = extractSkeletonFromHoa hoaAut
-                }
+                extractNondeterministicSkeletonFromHoa hoaAut
             InitialState = 
                 match hoaAut.Header.Start with 
                 | [[x]] -> x
                 | _ -> raise <| ConversionException {Info = $"Could not convert HANOI automaton to DPA"; DebugInfo = $"Could not convert HANOI automaton to DPA; The HOA automataon does not define a unique initial state"}
-
             Color = 
                 body.StateMap
                 |> Map.map (fun _ x -> x |> fst |> Set.toList |> List.head)
@@ -180,7 +180,7 @@ module private HoaConversion =
             raise <| ConversionException {Info = $"Could not convert HANOI automaton to APA"; DebugInfo = $"Could not convert HANOI automaton to APA; No valid Acceptance condition for a parity automaton: %A{hoaAut.Header.Acceptance}"}
 
         {
-            APA.Skeleton = extractSkeletonFromHoa hoaAut
+            APA.Skeleton = extractAlternatingSkeletonFromHoa hoaAut
             InitialStates = 
                 hoaAut.Header.Start
                 |> List.map set 
