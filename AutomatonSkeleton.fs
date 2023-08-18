@@ -209,6 +209,7 @@ module private AutomatonSkeleton =
         }
 
 
+    
 module AlternatingAutomatonSkeleton = 
 
     let actuallyUsedAPs(skeleton : AlternatingAutomatonSkeleton<'T, 'L>) = 
@@ -273,6 +274,127 @@ module AlternatingAutomatonSkeleton =
         AutomatonSkeleton.projectToTargetAPs newAPs skeleton
 
 
+    let computeBisimulationQuotient (accFunction : 'T -> 'G) (skeleton : AlternatingAutomatonSkeleton<'T, 'L>) = 
+        
+        let explicitAlphabet = Util.computeBooleanPowerSet (skeleton.APs |> List.length) |> Seq.toList
+
+        // Helper function to split a part of the partition
+        let splitPartition (stateToPartitionId : Map<'T,int>) partitionId = 
+            let statesInPartitionId = 
+                stateToPartitionId
+                |> Map.toSeq 
+                |> Seq.filter (fun (_, x) -> x = partitionId)
+                |> Seq.map fst
+
+            if Seq.length statesInPartitionId <= 1 then 
+                // This partition contains only one state, cannot be split further
+                None
+            else    
+                // We need to partiation states when, on some letter, the sets of sets of states are not the same
+
+                let c = 
+                    statesInPartitionId
+                    // Map all states to the successor partitions
+                    |> Seq.map (fun s -> 
+                        // This id should be identical for all states in the same partition 
+                        let id = 
+                            explicitAlphabet
+                            |> List.map (fun l -> 
+                                skeleton.Edges.[s]
+                                |> List.filter (fun (g, _) -> g |> DNF.eval (fun i -> l.[i]) )
+                                |> List.map snd 
+                                |> List.map (fun y -> 
+                                    y |> Set.map (fun s' -> stateToPartitionId.[s'])
+                                    )
+                                |> set 
+                            )
+
+                        id, s
+                    )
+                    |> Seq.groupBy fst // group by the id
+                    |> Seq.map (fun (k, el) -> k, el |> Seq.map snd |> set)
+                    |> Map.ofSeq
+
+                if Map.count c = 1 then 
+                    // All states point to the same set of partitions, no need to split 
+                    None 
+                else 
+                    Map.values c
+                    |> seq 
+                    |> Some
+
+        // We init the partition based only on the acceptance condition of each state
+        let initStateToPartitionId = 
+            skeleton.States 
+            |> Seq.groupBy (fun s -> accFunction s)
+            |> Seq.map snd
+            |> Seq.mapi (fun i states ->
+                states 
+                |> Seq.map (fun s -> s, i)
+                )
+            |> Seq.concat
+            |> Map.ofSeq
+
+        let rec iterativeSplit (stateToPartitionId : Map<'T, int>) = 
+            let partitionIDs = 
+                stateToPartitionId
+                |> Map.values 
+                |> Seq.distinct
+
+            let mutable freshId = Seq.max partitionIDs + 1
+
+            // Use lazyness here to not do all the work
+            partitionIDs
+            |> Seq.choose (fun id -> splitPartition stateToPartitionId id)
+            |> Seq.tryHead
+            |> function 
+                | None -> 
+                    // We are done, nothing left to split
+                    stateToPartitionId
+                | Some newPartitions -> 
+
+                    let newSplit = 
+                        // We do not assign the first partiation a new id as it can simply stay with the old one
+                        (stateToPartitionId, Seq.tail newPartitions)
+                        ||> Seq.fold (fun m states -> 
+                            let newId = freshId
+                            freshId <- freshId + 1
+
+                            (m, states)
+                            ||> Set.fold (fun mm s -> 
+                                // Overwrite the partitionID for s
+                                Map.add s newId mm
+                                )
+                            )
+
+                    iterativeSplit newSplit
+        
+        let finalStateToPartitionId = iterativeSplit initStateToPartitionId
+
+        let states = Map.values finalStateToPartitionId |> set
+
+        let newSkeleton = 
+            {
+                AutomatonSkeleton.States = states
+                APs = skeleton.APs
+                Edges = 
+                    states 
+                    |> Seq.map (fun id -> 
+                        // Any state in this partiition has the same set of set of states 
+                        let s = finalStateToPartitionId |> Map.toSeq |> Seq.find (fun (_, idd) -> id = idd) |> fst
+
+                        let edges = 
+                            skeleton.Edges.[s]
+                            |> List.map (fun (g, sucs) -> g, sucs |> Set.map (fun s' -> finalStateToPartitionId.[s']))
+
+                        id, edges
+                        )
+                    |> Map.ofSeq
+            }
+                        
+        newSkeleton, finalStateToPartitionId
+
+
 
 module NondeterministicAutomatonSkeleton = 
 
@@ -327,6 +449,9 @@ module NondeterministicAutomatonSkeleton =
     let projectToTargetAPs (newAPs : list<'L>) (skeleton : NondeterministicAutomatonSkeleton<'T, 'L>)  = 
         AutomatonSkeleton.projectToTargetAPs newAPs skeleton
 
+    
+        
+
     let toAlternatingAutomatonSkeleton (skeleton : NondeterministicAutomatonSkeleton<'T, 'L>) = 
         {
             AutomatonSkeleton.States = skeleton.States
@@ -361,5 +486,13 @@ module NondeterministicAutomatonSkeleton =
                         )
             }
             |> Some
+
+    let computeBisimulationQuotient (accFunction : 'T -> 'G) (skeleton : NondeterministicAutomatonSkeleton<'T, 'L>) = 
+        let bisim, m = 
+            skeleton
+            |> toAlternatingAutomatonSkeleton
+            |> AlternatingAutomatonSkeleton.computeBisimulationQuotient accFunction
+        
+        bisim |> tryFromAlternatingAutomatonSkeleton |> Option.get, m
 
 

@@ -229,5 +229,22 @@ module APA =
     let fixAPs (aps : list<'L>)  (apa : APA<'T, 'L>) =
         {apa with Skeleton = AlternatingAutomatonSkeleton.fixAPsToSkeleton aps apa.Skeleton}
 
-    let projectToTargetAPs (newAPs : list<'L>) (apa : APA<int, 'L>)  = 
+    let projectToTargetAPs (newAPs : list<'L>) (apa : APA<'T, 'L>)  = 
         {apa with Skeleton = AlternatingAutomatonSkeleton.projectToTargetAPs newAPs apa.Skeleton}
+
+    let computeBisimulationQuotient (apa : APA<'T, 'L>) = 
+        let bisimSkeleton, m = AutomatonSkeleton.AlternatingAutomatonSkeleton.computeBisimulationQuotient (fun x -> apa.Color.[x]) apa.Skeleton
+
+        {
+            APA.Skeleton = bisimSkeleton
+            InitialStates = 
+                apa.InitialStates
+                |> Set.map (Set.map (fun x -> m.[x]))
+            Color = 
+                bisimSkeleton.States
+                |> Seq.map (fun x -> 
+                    let s = m |> Map.toSeq |> Seq.find (fun (_, y) -> x = y) |> fst
+                    x, apa.Color.[s]
+                    )
+                |> Map.ofSeq
+        }
