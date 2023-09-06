@@ -98,10 +98,25 @@ module LTL =
 
     let rec allAtoms (formula : LTL<'T>) = 
         match formula with 
-            | Atom x -> Set.singleton x
-            | True | False -> Set.empty 
-            | And(e1, e2) | Implies(e1, e2) | Equiv(e1, e2) | Xor(e1, e2) | Or(e1, e2) | U(e1, e2) | W(e1, e2) | M(e1, e2) | R(e1, e2) -> Set.union (allAtoms e1) (allAtoms e2)
-            | F e | G e | X e | Not e -> allAtoms e
+        | Atom x -> Set.singleton x
+        | True | False -> Set.empty 
+        | And(e1, e2) | Implies(e1, e2) | Equiv(e1, e2) | Xor(e1, e2) | Or(e1, e2) | U(e1, e2) | W(e1, e2) | M(e1, e2) | R(e1, e2) -> Set.union (allAtoms e1) (allAtoms e2)
+        | F e | G e | X e | Not e -> allAtoms e
+
+    let rec size (formula : LTL<'T>) = 
+        match formula with 
+        | Atom _ | True | False -> 1
+        | And(e1, e2) | Implies(e1, e2) | Equiv(e1, e2) | Xor(e1, e2) | Or(e1, e2) | U(e1, e2) | W(e1, e2) | M(e1, e2) | R(e1, e2) -> (size e1) + (size e2) + 1
+        | F e | G e | X e | Not e -> (size e) + 1
+
+    let rec allSubformulas (formula : LTL<'T>) = 
+        let subFormulas = 
+            match formula with 
+            | Atom _ | True | False -> Set.empty
+            | And(e1, e2) | Implies(e1, e2) | Equiv(e1, e2) | Xor(e1, e2) | Or(e1, e2) | U(e1, e2) | W(e1, e2) | M(e1, e2) | R(e1, e2) -> Set.union (allSubformulas e1) (allSubformulas e2)
+            | F e | G e | X e | Not e -> allSubformulas e
+
+        Set.add formula subFormulas
 
 
 module Parser =
