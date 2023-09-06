@@ -27,6 +27,7 @@ open AutomatonSkeleton
 open GNBA
 open NBA
 open DPA
+open NPA
 open APA
 open LTL
 
@@ -168,6 +169,33 @@ module private HoaConversion =
                 |> Map.map (fun _ x -> x |> fst |> Set.toList |> List.head)
         }
 
+    let convertHoaToNPA (hoaAut : HoaAutomaton) = 
+        let body = hoaAut.Body
+
+        // Check that the acc condition is a max-even condition
+        let rec isParityCondition (_ : AcceptanceCondition) = 
+            true
+
+        let _, acc =  hoaAut.Header.Acceptance
+        if isParityCondition acc |> not then 
+            raise <| ConversionException {Info = $"Could not convert HANOI automaton to NPA"; DebugInfo = $"Could not convert HANOI automaton to NPA; No valid Acceptance condition for a parity automaton: %A{hoaAut.Header.Acceptance}"}
+
+        {
+            NPA.Skeleton = 
+                extractNondeterministicSkeletonFromHoa hoaAut
+            InitialStates = 
+                hoaAut.Header.Start
+                |> List.map (
+                    function 
+                    | [x] -> x 
+                    | _ -> raise <| ConversionException {Info = $"Could not convert HANOI automaton to NPA"; DebugInfo = $"Could not convert HANOI automaton to NPA; The HANOI automataon uses conjunctions of initial states"}
+                )
+                |> set
+            Color = 
+                body.StateMap
+                |> Map.map (fun _ x -> x |> fst |> Set.toList |> List.head)
+        }
+
     let convertHoaToAPA (hoaAut : HoaAutomaton) = 
         let body = hoaAut.Body
 
@@ -211,6 +239,14 @@ module private HoaConversion =
             |> DPA.mapAPs f
         | Error err -> raise <| ConversionException {Info = $"Could not parse HANOI automaton"; DebugInfo = $"Could not parse HANOI automaton into DPA: %s{err}"}
     
+    let resultToNPA (res: String) (f : String -> 'L) = 
+        match HOA.Parser.parseHoaAutomaton res with 
+        | Ok hoa -> 
+            convertHoaToNPA hoa
+            |> NPA.mapAPs f
+        | Error err -> raise <| ConversionException {Info = $"Could not parse HANOI automaton"; DebugInfo = $"Could not parse HANOI automaton into NPA: %s{err}"}
+    
+
     let resultToAPA (res: String) (f : String -> 'L) = 
         match HOA.Parser.parseHoaAutomaton res with 
         | Ok hoa -> 
@@ -333,6 +369,43 @@ module AutomatonConversions =
             Fail (err)
         | e -> 
             Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (convert, DPA); %s{e.Message}"}
+
+    let convertToNPA (debug: bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (aut : AbstractAutomaton<int, 'L>) = 
+        try 
+            let dict, revDict = 
+                aut.Skeleton.APs
+                |> List.mapi (fun i x -> 
+                    let a = "l" + string i
+                    (x, a), (a, x))
+                |> List.unzip
+                |> fun (x, y) -> Map.ofList x, Map.ofList y
+
+            let s = aut.ToHoaString string (fun x -> dict.[x])
+
+            let path = Path.Combine [|intermediateFilesPath; "aut1.hoa"|]
+            let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
+
+            File.WriteAllText(path, s)
+
+            let arg = "--small --" + Effort.asString ef + " -S -p\"max even\" " + path + " -o " + targetPath
+            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
+
+            match res with 
+            | {ExitCode = 0; Stderr = ""} -> 
+                let c = File.ReadAllText(targetPath)
+                HoaConversion.resultToNPA c (fun x -> revDict.[x])
+                |> Success
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 then 
+                    raise <| ConversionException {Info = $"Unexpected exit code by spot"; DebugInfo = $"Unexpected exit code by spot;  (convert, NPA); %i{exitCode}"}
+                else   
+                    raise <| ConversionException {Info = $"Error by spot"; DebugInfo = $"Error by spot; (convert, NPA); %s{stderr}"}
+        with
+        | _ when debug -> reraise() 
+        | ConversionException err -> 
+            Fail (err)
+        | e -> 
+            Fail {Info = $"Unexpected error"; DebugInfo = $"Unexpected error; (convert, NPA); %s{e.Message}"}
 
 module AutomatonFromString = 
     let convertHoaStringToGNBA (debug : bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (autString : String) = 
