@@ -35,6 +35,13 @@ let rec cartesianProduct (LL: list<seq<'a>>) =
                 for xs in cartesianProduct Ls -> x :: xs
         }
 
+let rec computeBooleanPowerSet n =
+    if n = 0 then
+        Seq.singleton []
+    else
+        let r = computeBooleanPowerSet (n-1)
+        Seq.append (Seq.map (fun x -> true::x) r) (Seq.map (fun x -> false::x) r)
+
 module SubprocessUtil = 
 
     type SubprocessResult = 

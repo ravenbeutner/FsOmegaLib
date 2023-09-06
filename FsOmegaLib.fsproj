@@ -16,6 +16,7 @@
     <Compile Include="GNBA.fs" />
     <Compile Include="NBA.fs" />
     <Compile Include="DPA.fs" />
+    <Compile Include="APA.fs" />
     <Compile Include="LTL.fs" />
     <Compile Include="Operations.fs" />
   </ItemGroup>
