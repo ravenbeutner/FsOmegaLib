@@ -26,6 +26,7 @@ open AbstractAutomaton
 open GNBA
 open NBA
 open DPA
+open NSA
 open LTL
 
 type AutomataOperationResult<'T> =
@@ -125,12 +126,36 @@ module private HoaConversion =
                 |> Seq.map fst
                 |> set
         }
+
+    let convertHoaToNSA (hoaAut : HoaAutomaton) = 
+        let body = hoaAut.Body
+
+        match hoaAut.Header.Acceptance with 
+        | Some (0, AccTrue) -> ()
+        | _ -> raise <| ConversionException $"No valid NBA-Acceptance condition: %A{hoaAut.Header.Acceptance}" 
+        
+        {
+            NSA.Skeleton = 
+                {
+                    States = set([0..hoaAut.Header.States.Value - 1]);
+                    APs = hoaAut.Header.APs.Value;
+                    Edges = 
+                        body.StateMap
+                        |> Map.toSeq
+                        |> Seq.map 
+                            (fun (k, (_, e)) -> 
+                                k, e
+                            ) 
+                        |> Map.ofSeq
+                }
+            InitialStates = hoaAut.Header.Start |> set
+        }
             
     let convertHoaToDPA (hoaAut : HoaAutomaton) = 
         let body = hoaAut.Body
 
         let rec isParityCondition (_ : AcceptanceCondition) = 
-            // TODO
+            // TODO, check for parity acceptance
             true
 
         match hoaAut.Header.Acceptance with 
@@ -176,6 +201,13 @@ module private HoaConversion =
         | Ok hoa -> 
             convertHoaToDPA hoa
             |> DPA.mapAPs f
+        | Error err -> raise <| ConversionException err
+
+    let resultToNSA (res: String) (f : String -> 'L) = 
+        match HOA.Parser.parseHoaAutomaton res with 
+        | Ok hoa -> 
+            convertHoaToNSA hoa
+            |> NSA.mapAPs f
         | Error err -> raise <| ConversionException err
             
 
@@ -293,6 +325,45 @@ module AutomatonConversions =
             Fail (err)
         | e -> 
             Fail ($"%s{e.Message}")
+
+    let convertToNSA (debug: bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (aut : AbstractAutomaton<int, 'L>) = 
+        try
+            let dict, revDict = 
+                aut.Skeleton.APs
+                |> List.mapi (fun i x -> 
+                    let a = "l" + string i
+                    (x, a), (a, x))
+                |> List.unzip
+                |> fun (x, y) -> Map.ofList x, Map.ofList y
+
+            let s = aut.ToHoaString string (fun x -> dict.[x])
+
+            let path = Path.Combine [|intermediateFilesPath; "aut1.hoa"|]
+            let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
+
+            File.WriteAllText(path, s)
+
+            let arg = "--small --" + Effort.asString ef + " -M " + path + " -o " + targetPath
+
+            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
+
+            match res with 
+            | {ExitCode = 0; Stderr = ""} -> 
+                let c = File.ReadAllText(targetPath)
+                HoaConversion.resultToNSA c (fun x -> revDict.[x])
+                |> Success
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 then 
+                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
+        with 
+        | _ when debug -> reraise() 
+        | ConversionException err -> 
+            Fail (err)
+        | e -> 
+            Fail ($"%s{e.Message}")
+
 
 module AutomatonFromString = 
     let convertHoaStringToGNBA (debug : bool) (intermediateFilesPath : String) (autfiltPath : String) (ef : Effort) (autString : String) = 
@@ -660,6 +731,46 @@ module LTLConversion =
             Fail (err)
         | e -> 
             Fail ($"%s{e.Message}")
+
+    let convertLTLtoNSA debug (intermediateFilesPath : String) (ltl2tgbaPath : String) (ltl : LTL<'L>)  = 
+        try 
+            let dict, revDict = 
+                ltl 
+                |> LTL.allAtoms
+                |> Set.toList
+                |> List.mapi (fun i x -> 
+                    let a = "l" + string i
+                    (x, a), (a, x))
+                |> List.unzip
+                |> fun (x, y) -> Map.ofList x, Map.ofList y
+            
+            let ltlAsString = 
+                ltl
+                |> LTL.printInSpotFormat (fun x -> "\"" + dict.[x] + "\"")
+
+            let targetPath = Path.Combine [|intermediateFilesPath; "autRes.hoa"|]
+
+            let args = "-M \"" + ltlAsString + "\"" + " -o " + targetPath
+
+            let res = Util.SubprocessUtil.executeSubprocess ltl2tgbaPath args
+
+            match res with 
+            | {ExitCode = 0; Stderr = ""} -> 
+                let c = File.ReadAllText(targetPath)
+                HoaConversion.resultToNSA c (fun x -> revDict.[x])
+                |> Success
+            | {ExitCode = exitCode; Stderr = stderr}  -> 
+                if exitCode <> 0 then 
+                    raise <| ConversionException $"Unexpected (non-zero) exit code %i{exitCode}"
+                else   
+                    raise <| ConversionException stderr
+        with
+        | _ when debug -> reraise() 
+        | ConversionException err -> 
+            Fail (err)
+        | e -> 
+            Fail ($"%s{e.Message}")
+
 
 module AutomataChecks = 
     let isEmpty debug (intermediateFilesPath : String) (autfiltPath : String) (aut : AbstractAutomaton<int, 'L>) = 
