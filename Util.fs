@@ -35,6 +35,13 @@ let rec cartesianProduct (LL: list<seq<'a>>) =
                 for xs in cartesianProduct Ls -> x :: xs
         }
 
+let rec computeBooleanPowerSet n =
+    if n = 0 then
+        Seq.singleton []
+    else
+        let r = computeBooleanPowerSet (n-1)
+        Seq.append (Seq.map (fun x -> true::x) r) (Seq.map (fun x -> false::x) r)
+
 module SubprocessUtil = 
 
     type SubprocessResult = 
@@ -55,15 +62,15 @@ module SubprocessUtil =
         let p = System.Diagnostics.Process.Start(psi)
         let output = System.Text.StringBuilder()
         let error = System.Text.StringBuilder()
-        p.OutputDataReceived.Add(fun args -> output.Append(args.Data) |> ignore)
-        p.ErrorDataReceived.Add(fun args -> error.Append(args.Data) |> ignore)
+        p.OutputDataReceived.Add(fun args -> output.Append(args.Data + "\n") |> ignore)
+        p.ErrorDataReceived.Add(fun args -> error.Append(args.Data + "\n") |> ignore)
         p.BeginErrorReadLine()
         p.BeginOutputReadLine()
         p.WaitForExit()
 
         {
-            SubprocessResult.Stdout = output.ToString();
-            Stderr = error.ToString()
+            SubprocessResult.Stdout = output.ToString().Trim();
+            Stderr = error.ToString().Trim()
             ExitCode = p.ExitCode
         }
             

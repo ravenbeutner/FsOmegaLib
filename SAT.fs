@@ -299,17 +299,27 @@ let convertBooleanExpressionToDNF (e : BooleanExpression<'T>) : DNF<'T> =
     recursiveConverter e
 
 let convertDNFToBooleanExpression (dnf : DNF<'T>) = 
-    dnf
-    |> List.map (fun disjunct ->    
-        disjunct
-        |> List.map (fun l -> 
-            match l with 
-            | PL x -> Atom x
-            | NL x -> Neg (Atom x)
-            )
-        |> And
-    )
-    |> Or
+    let mappedDisjunction = 
+        dnf
+        |> List.map (fun conjunction ->  
+            let mappedConjunction =   
+                conjunction
+                |> List.map (fun l -> 
+                    match l with 
+                    | PL x -> Atom x
+                    | NL x -> Neg (Atom x)
+                    )
+
+            match mappedConjunction with 
+            | [] -> BooleanExpression.True
+            | [x] -> x 
+            | _ -> And mappedConjunction
+        )
+
+    match mappedDisjunction with 
+    | [] -> BooleanExpression.False
+    | [x] -> x 
+    | _ -> Or mappedDisjunction
 
 
 module Parser = 

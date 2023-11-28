@@ -29,7 +29,7 @@ exception private NotWellFormedException of String
 
 type NSA<'T, 'L when 'T: comparison and 'L : comparison> = 
     {
-        Skeleton : AutomatonSkeleton<'T, 'L>
+        Skeleton : NondeterministicAutomatonSkeleton<'T, 'L>
         InitialStates : Set<'T>
     }
 
@@ -44,11 +44,11 @@ type NSA<'T, 'L when 'T: comparison and 'L : comparison> =
 
     interface AbstractAutomaton<'T, 'L> with
         member this.Skeleton = 
-            this.Skeleton
+            NondeterministicAutomatonSkeleton.toAlternatingAutomatonSkeleton this.Skeleton
 
         member this.FindError() = 
             try 
-                match AutomatonSkeleton.findError this.Skeleton with 
+                match NondeterministicAutomatonSkeleton.findError this.Skeleton with 
                 | Some err -> 
                     raise <| NotWellFormedException err 
                 | None -> ()
@@ -97,7 +97,7 @@ type NSA<'T, 'L when 'T: comparison and 'L : comparison> =
 module NSA = 
 
     let actuallyUsedAPs(nsa : NSA<'T, 'L>) = 
-        AutomatonSkeleton.actuallyUsedAPs nsa.Skeleton
+        NondeterministicAutomatonSkeleton.actuallyUsedAPs nsa.Skeleton
 
     let convertStatesToInt (nsa : NSA<'T, 'L>)  = 
         let idDict = 
@@ -129,7 +129,7 @@ module NSA =
     
     let mapAPs (f : 'L -> 'U) (nsa : NSA<'T, 'L>) = 
         {
-            Skeleton = AutomatonSkeleton.mapAPs f nsa.Skeleton
+            Skeleton = NondeterministicAutomatonSkeleton.mapAPs f nsa.Skeleton
             InitialStates = nsa.InitialStates
         }
 
@@ -166,22 +166,22 @@ module NSA =
     let bringToSameAPs (autList : list<NSA<'T, 'L>>) =
         autList
         |> List.map (fun x -> x.Skeleton)
-        |> AutomatonSkeleton.bringSkeletonsToSameAps 
+        |> NondeterministicAutomatonSkeleton.bringSkeletonsToSameAps 
         |> List.mapi (fun i x -> 
             {autList.[i] with Skeleton = x}
             )
 
-    let bringPairToSameAPs (nsa1 : NSA<'T, 'L>) (nsa2 : NSA<'U, 'L>) =
-        let sk1, sk2 = AutomatonSkeleton.bringSkeletonPairToSameAps nsa1.Skeleton nsa2.Skeleton
+    let bringPairToSameAPs (nsa1 : NSA<'T, 'L>) (nsa2 : NSA<'T, 'L>) =
+        let sk1, sk2 = NondeterministicAutomatonSkeleton.bringSkeletonPairToSameAps nsa1.Skeleton nsa2.Skeleton
 
         {nsa1 with Skeleton = sk1}, {nsa2 with Skeleton = sk2}
 
     let addAPs (aps : list<'L>)  (nsa : NSA<'T, 'L>) =
-        {nsa with Skeleton = AutomatonSkeleton.addAPsToSkeleton aps nsa.Skeleton}
+        {nsa with Skeleton = NondeterministicAutomatonSkeleton.addAPsToSkeleton aps nsa.Skeleton}
 
     let fixAPs (aps : list<'L>)  (nsa : NSA<'T, 'L>) =
-        {nsa with Skeleton = AutomatonSkeleton.fixAPsToSkeleton aps nsa.Skeleton}
+        {nsa with Skeleton = NondeterministicAutomatonSkeleton.fixAPsToSkeleton aps nsa.Skeleton}
 
     let projectToTargetAPs (newAPs : list<'L>) (nsa : NSA<int, 'L>)  = 
-        {nsa with Skeleton = AutomatonSkeleton.projectToTargetAPs newAPs nsa.Skeleton}
+        {nsa with Skeleton = NondeterministicAutomatonSkeleton.projectToTargetAPs newAPs nsa.Skeleton}
 
