@@ -148,8 +148,6 @@ module private HoaConversion =
         }
 
     let convertHoaToNSA (hoaAut : HoaAutomaton) = 
-        let body = hoaAut.Body
-
         match hoaAut.Header.Acceptance with 
         | 0, AccTrue -> ()
         | _ -> raise <| ConversionException {Info = $"Could not convert HANOI automaton to NSA"; DebugInfo = $"Could not convert HANOI automaton to NSA"}

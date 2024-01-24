@@ -487,12 +487,14 @@ module NondeterministicAutomatonSkeleton =
             }
             |> Some
 
-    let computeBisimulationQuotient (accFunction : 'T -> 'G) (skeleton : NondeterministicAutomatonSkeleton<'T, 'L>) = 
+    let computeBisimulationQuotient (accFunction : 'T -> 'G) (skeleton : NondeterministicAutomatonSkeleton<'T, 'L>) : NondeterministicAutomatonSkeleton<int,'L> * Map<'T,int>   = 
         let bisim, m = 
             skeleton
             |> toAlternatingAutomatonSkeleton
             |> AlternatingAutomatonSkeleton.computeBisimulationQuotient accFunction
+
+        let skeleton = bisim |> tryFromAlternatingAutomatonSkeleton |> Option.get
         
-        bisim |> tryFromAlternatingAutomatonSkeleton |> Option.get, m
+        skeleton, m
 
 

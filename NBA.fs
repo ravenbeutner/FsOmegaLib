@@ -176,17 +176,30 @@ module NBA =
             {autList.[i] with Skeleton = x}
             )
 
-    let bringPairToSameAPs (gnba1 : NBA<'T, 'L>) (gnba2 : NBA<'T, 'L>) =
-        let sk1, sk2 = NondeterministicAutomatonSkeleton.bringSkeletonPairToSameAps gnba1.Skeleton gnba2.Skeleton
+    let bringPairToSameAPs (nba1 : NBA<'T, 'L>) (nba2 : NBA<'T, 'L>) =
+        let sk1, sk2 = NondeterministicAutomatonSkeleton.bringSkeletonPairToSameAps nba1.Skeleton nba2.Skeleton
 
-        {gnba1 with Skeleton = sk1}, {gnba2 with Skeleton = sk2}
+        {nba1 with Skeleton = sk1}, {nba2 with Skeleton = sk2}
 
 
-    let addAPs (aps : list<'L>)  (gnba : NBA<'T, 'L>) =
-        {gnba with Skeleton = NondeterministicAutomatonSkeleton.addAPsToSkeleton aps gnba.Skeleton}
+    let addAPs (aps : list<'L>)  (nba : NBA<'T, 'L>) =
+        {nba with Skeleton = NondeterministicAutomatonSkeleton.addAPsToSkeleton aps nba.Skeleton}
 
-    let fixAPs (aps : list<'L>)  (gnba : NBA<'T, 'L>) =
-        {gnba with Skeleton = NondeterministicAutomatonSkeleton.fixAPsToSkeleton aps gnba.Skeleton}
+    let fixAPs (aps : list<'L>)  (nba : NBA<'T, 'L>) =
+        {nba with Skeleton = NondeterministicAutomatonSkeleton.fixAPsToSkeleton aps nba.Skeleton}
 
-    let projectToTargetAPs (newAPs : list<'L>) (gnba : NBA<int, 'L>)  = 
-        {gnba with Skeleton = NondeterministicAutomatonSkeleton.projectToTargetAPs newAPs gnba.Skeleton}
+    let projectToTargetAPs (newAPs : list<'L>) (nba : NBA<int, 'L>)  = 
+        {nba with Skeleton = NondeterministicAutomatonSkeleton.projectToTargetAPs newAPs nba.Skeleton}
+
+    let computeBisimulationQuotient (nba : NBA<int, 'L>) = 
+        let skeleton, m = NondeterministicAutomatonSkeleton.computeBisimulationQuotient (fun x -> Set.contains x nba.AcceptingStates) nba.Skeleton
+
+        {
+            NBA.Skeleton = skeleton
+            InitialStates = 
+                nba.InitialStates
+                |> Set.map (fun x -> m.[x])
+            AcceptingStates =   
+                nba.AcceptingStates
+                |> Set.map (fun x -> m.[x])
+        }
