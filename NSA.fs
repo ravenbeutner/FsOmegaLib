@@ -185,3 +185,13 @@ module NSA =
     let projectToTargetAPs (newAPs : list<'L>) (nsa : NSA<int, 'L>)  = 
         {nsa with Skeleton = NondeterministicAutomatonSkeleton.projectToTargetAPs newAPs nsa.Skeleton}
 
+    let computeBisimulationQuotient (nsa : NSA<int, 'L>) = 
+        let skeleton, m = NondeterministicAutomatonSkeleton.computeBisimulationQuotient (fun _ -> 0) nsa.Skeleton
+
+        {
+            NSA.Skeleton = skeleton
+            InitialStates = 
+                nsa.InitialStates
+                |> Set.map (fun x -> m.[x])
+        }
+

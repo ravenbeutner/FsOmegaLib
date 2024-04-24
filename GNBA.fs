@@ -228,3 +228,19 @@ module GNBA =
     let projectToTargetAPs (newAPs : list<'L>) (gnba : GNBA<int, 'L>)  = 
         {gnba with Skeleton = NondeterministicAutomatonSkeleton.projectToTargetAPs newAPs gnba.Skeleton}
 
+    let computeBisimulationQuotient (gnba : GNBA<int, 'L>) = 
+        let skeleton, m = NondeterministicAutomatonSkeleton.computeBisimulationQuotient (fun x -> gnba.AcceptanceSets.[x]) gnba.Skeleton
+
+        {
+            GNBA.Skeleton = skeleton
+            InitialStates = 
+                gnba.InitialStates
+                |> Set.map (fun x -> m.[x])
+            AcceptanceSets =   
+                gnba.AcceptanceSets
+                |> Map.toSeq
+                |> Seq.map (fun (s, c) -> 
+                    m.[s], c)
+                |> Map.ofSeq
+            NumberOfAcceptingSets = gnba.NumberOfAcceptingSets
+        }

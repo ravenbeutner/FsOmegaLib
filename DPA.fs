@@ -191,3 +191,19 @@ module DPA =
 
     let projectToTargetAPs (newAPs : list<'L>) (dpa : DPA<int, 'L>)  = 
         {dpa with Skeleton = NondeterministicAutomatonSkeleton.projectToTargetAPs newAPs dpa.Skeleton}
+
+    let computeBisimulationQuotient (dpa : DPA<int, 'L>) = 
+        let skeleton, m = NondeterministicAutomatonSkeleton.computeBisimulationQuotient (fun x -> dpa.Color.[x]) dpa.Skeleton
+
+        {
+            DPA.Skeleton = skeleton
+            InitialState = 
+                m.[dpa.InitialState]
+            Color =   
+                dpa.Color
+                |> Map.toSeq
+                |> Seq.map (fun (s, c) -> 
+                    m.[s], c
+                    )
+                |> Map.ofSeq
+        }
