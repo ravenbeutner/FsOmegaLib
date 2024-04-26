@@ -1,5 +1,5 @@
 (*    
-    Copyright (C) 2022-2023 Raven Beutner
+    Copyright (C) 2022-2024 Raven Beutner
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -137,7 +137,7 @@ module Parser =
 
             let accNameParser = 
                 skipString "acc-name:" >>. wsNoNewline >>. many1 (many1Chars (satisfy (fun x -> x <> ' ' && x <> '\n')) .>> wsNoNewline)
-                |>> fun x -> {header with AcceptanceName = Util.combineStringsWithSeperator " " x |> Some}
+                |>> fun x -> {header with AcceptanceName = String.concat " " x |> Some}
 
             let accParser = 
                 let accParser, accParserRef = createParserForwardedToRef()

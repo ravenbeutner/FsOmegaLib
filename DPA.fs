@@ -1,5 +1,5 @@
 (*    
-    Copyright (C) 2022-2023 Raven Beutner
+    Copyright (C) 2022-2024 Raven Beutner
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -77,7 +77,7 @@ type DPA<'T, 'L when 'T: comparison and 'L : comparison> =
             let apsString = 
                 this.APs 
                 |> List.map (fun x -> "\"" + alphStringer(x) + "\"") 
-                |> Util.combineStringsWithSeperator " "
+                |> String.concat " "
 
             stringWriter.WriteLine ("AP: " + string(this.APs.Length) + " " + apsString)
              

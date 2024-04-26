@@ -1,5 +1,5 @@
 (*    
-    Copyright (C) 2022-2023 Raven Beutner
+    Copyright (C) 2022-2024 Raven Beutner
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -84,11 +84,11 @@ module private AutomatonSkeleton =
                     let sucStatesStr = sucStringer s'
                     "[" + DNF.print g + "] " + sucStatesStr
                     )
-                |> Util.combineStringsWithSeperator "\n"
+                |> String.concat "\n"
 
             "State: " + stateStringer s + " " + accConditionStringer s + "\n" + edgesStr
             )
-        |> Util.combineStringsWithSeperator "\n"
+        |> String.concat "\n"
 
     let bringSkeletonsToSameAps (autList : list<AutomatonSkeleton<'T, 'L, 'G>>) =
         let combinedAps = 
@@ -226,7 +226,7 @@ module AlternatingAutomatonSkeleton =
             s 
             |> Set.toList
             |> List.map stateStringer
-            |> Util.combineStringsWithSeperator " & "
+            |> String.concat " & "
         
         
         AutomatonSkeleton.printBodyInHanoiFormat stateStringer accConditionStringer conjunctionStringer skeleton

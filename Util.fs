@@ -1,5 +1,5 @@
 (*    
-    Copyright (C) 2022-2023 Raven Beutner
+    Copyright (C) 2022-2024 Raven Beutner
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,13 +18,6 @@
 module internal FsOmegaLib.Util
 
 open System
-
-let rec combineStringsWithSeperator (s: String) (l: list<String>) = 
-    match l with 
-    | [] -> ""
-    | [x] -> x
-    | x::y::xs -> 
-        x + s + combineStringsWithSeperator s (y::xs)
 
 let rec cartesianProduct (LL: list<seq<'a>>) =
     match LL with
@@ -59,9 +52,11 @@ module SubprocessUtil =
         psi.RedirectStandardOutput <- true
         psi.RedirectStandardError <- true
         psi.CreateNoWindow <- true
+
         let p = System.Diagnostics.Process.Start(psi)
         let output = System.Text.StringBuilder()
         let error = System.Text.StringBuilder()
+
         p.OutputDataReceived.Add(fun args -> output.Append(args.Data + "\n") |> ignore)
         p.ErrorDataReceived.Add(fun args -> error.Append(args.Data + "\n") |> ignore)
         p.BeginErrorReadLine()

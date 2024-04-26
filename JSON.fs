@@ -1,5 +1,5 @@
 (*    
-    Copyright (C) 2022-2023 Raven Beutner
+    Copyright (C) 2022-2024 Raven Beutner
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -38,14 +38,14 @@ module JSON =
         | JList l -> 
             l 
             |> List.map (fun x -> toString x)
-            |> Util.combineStringsWithSeperator ", "
+            |> String.concat ", "
             |> fun x -> "[" + x + "]"
 
         | JObject m -> 
             m 
             |> Map.toList
             |> List.map (fun (k, v) -> "\"" + k + "\": " + toString v)
-            |> Util.combineStringsWithSeperator ", "
+            |> String.concat ", "
             |> fun x -> "{" + x + "}"
 
     let lookup s (json : Json) = 

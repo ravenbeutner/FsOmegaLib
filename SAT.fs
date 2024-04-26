@@ -1,5 +1,5 @@
 (*    
-    Copyright (C) 2022-2023 Raven Beutner
+    Copyright (C) 2022-2024 Raven Beutner
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -212,12 +212,12 @@ module BooleanExpression =
             | And l -> 
                 "(" +
                 (l |> List.map (fun x -> printInHoaFormat x)
-                |> Util.combineStringsWithSeperator "&")
+                |> String.concat "&")
                 + ")"
             | Or l -> 
                 "(" +
                 (l |> List.map (fun x -> printInHoaFormat x)
-                |> Util.combineStringsWithSeperator "|")
+                |> String.concat "|")
                 + ")"
 
     let rec eval (A : 'T -> bool) (b : BooleanExpression<'T>) = 
