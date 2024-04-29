@@ -42,6 +42,18 @@ type AutomataOperationResult<'T> =
     | Success of 'T 
     | Fail of FsOmegaLibError
 
+module AutomataOperationResult = 
+    let defaultValue (value: 'T) (result: AutomataOperationResult<'T>) =
+        match result with 
+        | Success x -> x 
+        | Fail _ -> value 
+
+    let defaultWith (defThunk : FsOmegaLibError -> 'T) (result: AutomataOperationResult<'T>) =
+        match result with 
+        | Success x -> x 
+        | Fail err -> defThunk err
+
+
 exception internal ConversionException of FsOmegaLibError
 
 type Effort = 
