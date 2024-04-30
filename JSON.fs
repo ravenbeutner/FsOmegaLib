@@ -19,164 +19,165 @@ module FsOmegaLib.JSON
 
 exception JsonError
 
-type Json = 
+type Json =
     | JString of string
     | JNumber of float
-    | JBool   of bool
+    | JBool of bool
     | JNull
-    | JList   of Json list
+    | JList of Json list
     | JObject of Map<string, Json>
 
-module JSON = 
+module JSON =
 
-    let rec toString (json : Json) = 
-        match json with 
+    let rec toString (json: Json) =
+        match json with
         | JString str -> "\"" + str + "\""
         | JNumber f -> string f
         | JBool b -> if b then "true" else "false"
         | JNull -> "null"
-        | JList l -> 
-            l 
+        | JList l ->
+            l
             |> List.map (fun x -> toString x)
             |> String.concat ", "
             |> fun x -> "[" + x + "]"
 
-        | JObject m -> 
-            m 
+        | JObject m ->
+            m
             |> Map.toList
             |> List.map (fun (k, v) -> "\"" + k + "\": " + toString v)
             |> String.concat ", "
             |> fun x -> "{" + x + "}"
 
-    let lookup s (json : Json) = 
-        match json with 
-        | JObject m -> 
-            if Map.containsKey s m then    
-                m.[s]
-            else 
-                raise JsonError
+    let lookup s (json: Json) =
+        match json with
+        | JObject m -> if Map.containsKey s m then m.[s] else raise JsonError
         | _ -> raise JsonError
 
-    let tryLookup s (json : Json) = 
-        match json with 
-        | JObject m -> 
-            if Map.containsKey s m then    
-                Some m.[s]
-            else 
-                None
+    let tryLookup s (json: Json) =
+        match json with
+        | JObject m -> if Map.containsKey s m then Some m.[s] else None
         | _ -> None
 
-    
-    let getString (json : Json) = 
-        match json with 
-        | JString s -> s 
+
+    let getString (json: Json) =
+        match json with
+        | JString s -> s
         | _ -> raise JsonError
-    
-    let getNumber (json : Json) = 
-        match json with 
+
+    let getNumber (json: Json) =
+        match json with
         | JNumber n -> n
         | _ -> raise JsonError
 
-    let getBool (json : Json) = 
-        match json with 
+    let getBool (json: Json) =
+        match json with
         | JBool b -> b
         | _ -> raise JsonError
-    
-    let getList (json : Json) = 
-        match json with 
+
+    let getList (json: Json) =
+        match json with
         | JList l -> l
         | _ -> raise JsonError
 
-    let getMap (json : Json) = 
-        match json with 
-        | JObject s -> s 
+    let getMap (json: Json) =
+        match json with
+        | JObject s -> s
         | _ -> raise JsonError
 
-    let tryGetString (json : Json) = 
-        match json with 
-        | JString s -> Some s 
+    let tryGetString (json: Json) =
+        match json with
+        | JString s -> Some s
         | _ -> None
-    
-    let tryGetNumber (json : Json) = 
-        match json with 
+
+    let tryGetNumber (json: Json) =
+        match json with
         | JNumber n -> Some n
         | _ -> None
 
-    let tryGetBool (json : Json) = 
-        match json with 
+    let tryGetBool (json: Json) =
+        match json with
         | JBool b -> Some b
         | _ -> None
-    
-    let tryGetList (json : Json) = 
-        match json with 
+
+    let tryGetList (json: Json) =
+        match json with
         | JList l -> Some l
         | _ -> None
 
-    let tryGetMap (json : Json) = 
-        match json with 
-        | JObject s -> Some s 
+    let tryGetMap (json: Json) =
+        match json with
+        | JObject s -> Some s
         | _ -> None
 
 
-module Parser = 
+module Parser =
     open FParsec
 
-    let private jsonParser, private jsonParserRef = createParserForwardedToRef()
+    let private jsonParser, private jsonParserRef = createParserForwardedToRef ()
 
     let private stringLiteral =
-        let escape =  
+        let escape =
             anyOf "\"\\/bfnrt"
-            |>> fun x -> 
+            |>> fun x ->
                 match x with
                 | 'b' -> "\b"
                 | 'f' -> "\u000C"
                 | 'n' -> "\n"
                 | 'r' -> "\r"
                 | 't' -> "\t"
-                | c   -> string c
+                | c -> string c
 
         let unicodeEscape =
-            pstring "u" >>. pipe4 hex hex hex hex (fun h3 h2 h1 h0 ->
-                let hex2int c = (int c &&& 15) + (int c >>> 6)*9
-                (hex2int h3)*4096 + (hex2int h2)*256 + (hex2int h1)*16 + hex2int h0
-                |> char |> string
-            )
+            pstring "u"
+            >>. pipe4 hex hex hex hex (fun h3 h2 h1 h0 ->
+                let hex2int c = (int c &&& 15) + (int c >>> 6) * 9
 
-        pchar '"' >>. (stringsSepBy (manySatisfy (fun c -> c <> '"' && c <> '\\'))
-                            (pstring "\\" >>. (escape <|> unicodeEscape))) .>> pchar '"'
+                (hex2int h3) * 4096 + (hex2int h2) * 256 + (hex2int h1) * 16 + hex2int h0
+                |> char
+                |> string)
 
-                
+        pchar '"'
+        >>. (stringsSepBy (manySatisfy (fun c -> c <> '"' && c <> '\\')) (pstring "\\" >>. (escape <|> unicodeEscape)))
+        .>> pchar '"'
+
+
     let private stringParser = stringLiteral |>> JString
 
-    let private numberParser = pfloat |>> JNumber 
+    let private numberParser = pfloat |>> JNumber
 
-    let private trueParser  = stringReturn "true"  (JBool true)
+    let private trueParser = stringReturn "true" (JBool true)
     let private falseParser = stringReturn "false" (JBool false)
-    let private nullParser  = stringReturn "null" JNull
+    let private nullParser = stringReturn "null" JNull
 
-    let private listParser   = 
-        pchar '[' >>. spaces >>. (sepBy (jsonParser .>> spaces) (pchar ',' .>> spaces)) .>> pchar ']'
+    let private listParser =
+        pchar '[' >>. spaces >>. (sepBy (jsonParser .>> spaces) (pchar ',' .>> spaces))
+        .>> pchar ']'
         |>> JList
 
-    let private objectParser   = 
-        pchar '{' >>. spaces >>. (sepBy (tuple2 stringLiteral (spaces >>. pchar ':' >>. spaces >>. jsonParser) .>> spaces) (pchar ',' .>> spaces)) .>> pchar '}'
+    let private objectParser =
+        pchar '{'
+        >>. spaces
+        >>. (sepBy
+            (tuple2 stringLiteral (spaces >>. pchar ':' >>. spaces >>. jsonParser) .>> spaces)
+            (pchar ',' .>> spaces))
+        .>> pchar '}'
         |>> (fun x -> x |> Map.ofList |> JObject)
-    
 
-    do jsonParserRef.Value <-
-        choice [
-                objectParser
-                listParser
-                stringParser
-                numberParser
-                trueParser
-                falseParser
-                nullParser
-            ]
 
-    let parseJsonString str = 
+    do
+        jsonParserRef.Value <-
+            choice
+                [ objectParser
+                  listParser
+                  stringParser
+                  numberParser
+                  trueParser
+                  falseParser
+                  nullParser ]
+
+    let parseJsonString str =
         let p = spaces >>. jsonParser .>> spaces .>> eof
+
         match run p str with
-        | Success (res, _, _) -> Result.Ok res
-        | Failure (err, _, _) -> Result.Error err
-    
+        | Success(res, _, _) -> Result.Ok res
+        | Failure(err, _, _) -> Result.Error err

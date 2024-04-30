@@ -32,21 +32,18 @@ let rec computeBooleanPowerSet n =
     if n = 0 then
         Seq.singleton []
     else
-        let r = computeBooleanPowerSet (n-1)
-        Seq.append (Seq.map (fun x -> true::x) r) (Seq.map (fun x -> false::x) r)
+        let r = computeBooleanPowerSet (n - 1)
+        Seq.append (Seq.map (fun x -> true :: x) r) (Seq.map (fun x -> false :: x) r)
 
-module SubprocessUtil = 
+module SubprocessUtil =
 
-    type SubprocessResult = 
-        {
-            Stdout : String 
-            Stderr : String 
-            ExitCode : int
-        }
+    type SubprocessResult =
+        { Stdout: String
+          Stderr: String
+          ExitCode: int }
 
-    let executeSubprocess (cmd: string) (arg: string) = 
-        let psi =
-            System.Diagnostics.ProcessStartInfo(cmd, arg)
+    let executeSubprocess (cmd: string) (arg: string) =
+        let psi = System.Diagnostics.ProcessStartInfo(cmd, arg)
 
         psi.UseShellExecute <- false
         psi.RedirectStandardOutput <- true
@@ -63,9 +60,6 @@ module SubprocessUtil =
         p.BeginOutputReadLine()
         p.WaitForExit()
 
-        {
-            SubprocessResult.Stdout = output.ToString().Trim();
-            Stderr = error.ToString().Trim()
-            ExitCode = p.ExitCode
-        }
-            
+        { SubprocessResult.Stdout = output.ToString().Trim()
+          Stderr = error.ToString().Trim()
+          ExitCode = p.ExitCode }
