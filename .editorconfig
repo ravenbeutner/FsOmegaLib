@@ -1,0 +1,8 @@
+[*.fs]
+indent_size = 4
+
+fsharp_multiline_bracket_style = aligned
+
+fsharp_multi_line_lambda_closing_newline = true
+
+fsharp_space_before_colon = true

@@ -26,10 +26,12 @@ open AbstractAutomaton
 
 exception private NotWellFormedException of String
 
-type NBA<'T, 'L when 'T: comparison and 'L: comparison> =
-    { Skeleton: NondeterministicAutomatonSkeleton<'T, 'L>
-      InitialStates: Set<'T>
-      AcceptingStates: Set<'T> }
+type NBA<'T, 'L when 'T : comparison and 'L : comparison> =
+    {
+        Skeleton : NondeterministicAutomatonSkeleton<'T, 'L>
+        InitialStates : Set<'T>
+        AcceptingStates : Set<'T>
+    }
 
     member this.States = this.Skeleton.States
 
@@ -51,19 +53,21 @@ type NBA<'T, 'L when 'T: comparison and 'L: comparison> =
                 |> Seq.iter (fun x ->
                     if this.Skeleton.States.Contains x |> not then
                         raise
-                        <| NotWellFormedException $"State $A{x} is initial but not contained in the set of states")
+                        <| NotWellFormedException $"State $A{x} is initial but not contained in the set of states"
+                )
 
                 this.AcceptingStates
                 |> Seq.iter (fun x ->
                     if this.Skeleton.States.Contains x |> not then
                         raise
-                        <| NotWellFormedException $"State $A{x} is accepting but not contained in the set of states")
+                        <| NotWellFormedException $"State $A{x} is accepting but not contained in the set of states"
+                )
 
                 None
             with NotWellFormedException msg ->
                 Some msg
 
-        member this.ToHoaString (stateStringer: 'T -> String) (alphStringer: 'L -> String) =
+        member this.ToHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) =
             let stringWriter = new StringWriter()
 
             stringWriter.WriteLine("HOA: v1")
@@ -99,78 +103,95 @@ type NBA<'T, 'L when 'T: comparison and 'L: comparison> =
 
 module NBA =
 
-    let actuallyUsedAPs (nba: NBA<'T, 'L>) =
+    let actuallyUsedAPs (nba : NBA<'T, 'L>) =
         NondeterministicAutomatonSkeleton.actuallyUsedAPs nba.Skeleton
 
-    let convertStatesToInt (nba: NBA<'T, 'L>) =
+    let convertStatesToInt (nba : NBA<'T, 'L>) =
         let idDict = nba.Skeleton.States |> Seq.mapi (fun i x -> x, i) |> Map.ofSeq
 
-        { NBA.Skeleton =
-            nba.Skeleton
-            |> NondeterministicAutomatonSkeleton.mapStates (fun x -> idDict.[x])
+        {
+            NBA.Skeleton =
+                nba.Skeleton
+                |> NondeterministicAutomatonSkeleton.mapStates (fun x -> idDict.[x])
 
-          InitialStates = nba.InitialStates |> Set.map (fun x -> idDict.[x])
+            InitialStates = nba.InitialStates |> Set.map (fun x -> idDict.[x])
 
-          AcceptingStates = nba.AcceptingStates |> Set.map (fun x -> idDict.[x]) }
+            AcceptingStates = nba.AcceptingStates |> Set.map (fun x -> idDict.[x])
+        }
 
-    let mapAPs (f: 'L -> 'U) (nba: NBA<'T, 'L>) =
-        { Skeleton = NondeterministicAutomatonSkeleton.mapAPs f nba.Skeleton
-          InitialStates = nba.InitialStates
-          AcceptingStates = nba.AcceptingStates }
+    let mapAPs (f : 'L -> 'U) (nba : NBA<'T, 'L>) =
+        {
+            Skeleton = NondeterministicAutomatonSkeleton.mapAPs f nba.Skeleton
+            InitialStates = nba.InitialStates
+            AcceptingStates = nba.AcceptingStates
+        }
 
     let trueAutomaton () : NBA<int, 'L> =
-        { NBA.Skeleton =
-            { AutomatonSkeleton.States = set ([ 0 ])
-              APs = []
-              Edges = [ 0, [ DNF.trueDNF, 0 ] ] |> Map.ofList }
-          InitialStates = set ([ 0 ])
-          AcceptingStates = Set.singleton 0 }
+        {
+            NBA.Skeleton =
+                {
+                    AutomatonSkeleton.States = set ([ 0 ])
+                    APs = []
+                    Edges = [ 0, [ DNF.trueDNF, 0 ] ] |> Map.ofList
+                }
+            InitialStates = set ([ 0 ])
+            AcceptingStates = Set.singleton 0
+        }
 
     let falseAutomaton () : NBA<int, 'L> =
-        { NBA.Skeleton =
-            { AutomatonSkeleton.States = set ([ 0 ])
-              APs = []
-              Edges = [ 0, List.empty ] |> Map.ofList }
-          InitialStates = set ([ 0 ])
-          AcceptingStates = Set.empty }
+        {
+            NBA.Skeleton =
+                {
+                    AutomatonSkeleton.States = set ([ 0 ])
+                    APs = []
+                    Edges = [ 0, List.empty ] |> Map.ofList
+                }
+            InitialStates = set ([ 0 ])
+            AcceptingStates = Set.empty
+        }
 
-    let toHoaString (stateStringer: 'T -> String) (alphStringer: 'L -> String) (nba: NBA<'T, 'L>) =
+    let toHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) (nba : NBA<'T, 'L>) =
         (nba :> AbstractAutomaton<'T, 'L>).ToHoaString stateStringer alphStringer
 
-    let findError (nba: NBA<'T, 'L>) =
+    let findError (nba : NBA<'T, 'L>) =
         (nba :> AbstractAutomaton<'T, 'L>).FindError()
 
-    let bringToSameAPs (autList: list<NBA<'T, 'L>>) =
+    let bringToSameAPs (autList : list<NBA<'T, 'L>>) =
         autList
         |> List.map (fun x -> x.Skeleton)
         |> NondeterministicAutomatonSkeleton.bringSkeletonsToSameAps
         |> List.mapi (fun i x -> { autList.[i] with Skeleton = x })
 
-    let bringPairToSameAPs (nba1: NBA<'T, 'L>) (nba2: NBA<'T, 'L>) =
+    let bringPairToSameAPs (nba1 : NBA<'T, 'L>) (nba2 : NBA<'T, 'L>) =
         let sk1, sk2 =
             NondeterministicAutomatonSkeleton.bringSkeletonPairToSameAps nba1.Skeleton nba2.Skeleton
 
         { nba1 with Skeleton = sk1 }, { nba2 with Skeleton = sk2 }
 
 
-    let addAPs (aps: list<'L>) (nba: NBA<'T, 'L>) =
+    let addAPs (aps : list<'L>) (nba : NBA<'T, 'L>) =
         { nba with
-            Skeleton = NondeterministicAutomatonSkeleton.addAPsToSkeleton aps nba.Skeleton }
+            Skeleton = NondeterministicAutomatonSkeleton.addAPsToSkeleton aps nba.Skeleton
+        }
 
-    let fixAPs (aps: list<'L>) (nba: NBA<'T, 'L>) =
+    let fixAPs (aps : list<'L>) (nba : NBA<'T, 'L>) =
         { nba with
-            Skeleton = NondeterministicAutomatonSkeleton.fixAPsToSkeleton aps nba.Skeleton }
+            Skeleton = NondeterministicAutomatonSkeleton.fixAPsToSkeleton aps nba.Skeleton
+        }
 
-    let projectToTargetAPs (newAPs: list<'L>) (nba: NBA<int, 'L>) =
+    let projectToTargetAPs (newAPs : list<'L>) (nba : NBA<int, 'L>) =
         { nba with
-            Skeleton = NondeterministicAutomatonSkeleton.projectToTargetAPs newAPs nba.Skeleton }
+            Skeleton = NondeterministicAutomatonSkeleton.projectToTargetAPs newAPs nba.Skeleton
+        }
 
-    let computeBisimulationQuotient (nba: NBA<int, 'L>) =
+    let computeBisimulationQuotient (nba : NBA<int, 'L>) =
         let skeleton, m =
             NondeterministicAutomatonSkeleton.computeBisimulationQuotient
                 (fun x -> Set.contains x nba.AcceptingStates)
                 nba.Skeleton
 
-        { NBA.Skeleton = skeleton
-          InitialStates = nba.InitialStates |> Set.map (fun x -> m.[x])
-          AcceptingStates = nba.AcceptingStates |> Set.map (fun x -> m.[x]) }
+        {
+            NBA.Skeleton = skeleton
+            InitialStates = nba.InitialStates |> Set.map (fun x -> m.[x])
+            AcceptingStates = nba.AcceptingStates |> Set.map (fun x -> m.[x])
+        }

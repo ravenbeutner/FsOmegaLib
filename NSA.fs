@@ -27,9 +27,11 @@ open AbstractAutomaton
 
 exception private NotWellFormedException of String
 
-type NSA<'T, 'L when 'T: comparison and 'L: comparison> =
-    { Skeleton: NondeterministicAutomatonSkeleton<'T, 'L>
-      InitialStates: Set<'T> }
+type NSA<'T, 'L when 'T : comparison and 'L : comparison> =
+    {
+        Skeleton : NondeterministicAutomatonSkeleton<'T, 'L>
+        InitialStates : Set<'T>
+    }
 
     member this.States = this.Skeleton.States
 
@@ -51,14 +53,15 @@ type NSA<'T, 'L when 'T: comparison and 'L: comparison> =
                 |> Seq.iter (fun x ->
                     if this.Skeleton.States.Contains x |> not then
                         raise
-                        <| NotWellFormedException $"State $A{x} is initial but not contained in the set of states")
+                        <| NotWellFormedException $"State $A{x} is initial but not contained in the set of states"
+                )
 
                 None
             with NotWellFormedException msg ->
                 Some msg
 
 
-        member this.ToHoaString (stateStringer: 'T -> String) (alphStringer: 'L -> String) =
+        member this.ToHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) =
             let s = new StringWriter()
 
             s.WriteLine("HOA: v1")
@@ -95,74 +98,93 @@ type NSA<'T, 'L when 'T: comparison and 'L: comparison> =
 
 module NSA =
 
-    let actuallyUsedAPs (nsa: NSA<'T, 'L>) =
+    let actuallyUsedAPs (nsa : NSA<'T, 'L>) =
         NondeterministicAutomatonSkeleton.actuallyUsedAPs nsa.Skeleton
 
-    let convertStatesToInt (nsa: NSA<'T, 'L>) =
+    let convertStatesToInt (nsa : NSA<'T, 'L>) =
         let idDict = nsa.Skeleton.States |> Seq.mapi (fun i x -> x, i) |> Map.ofSeq
 
-        { NSA.Skeleton =
-            { AutomatonSkeleton.States = nsa.Skeleton.States |> Set.map (fun x -> idDict.[x])
-              APs = nsa.Skeleton.APs
-              Edges =
-                nsa.Skeleton.Edges
-                |> Map.toSeq
-                |> Seq.map (fun (k, v) -> idDict.[k], v |> List.map (fun (g, s) -> g, idDict.[s]))
-                |> Map.ofSeq }
+        {
+            NSA.Skeleton =
+                {
+                    AutomatonSkeleton.States = nsa.Skeleton.States |> Set.map (fun x -> idDict.[x])
+                    APs = nsa.Skeleton.APs
+                    Edges =
+                        nsa.Skeleton.Edges
+                        |> Map.toSeq
+                        |> Seq.map (fun (k, v) -> idDict.[k], v |> List.map (fun (g, s) -> g, idDict.[s]))
+                        |> Map.ofSeq
+                }
 
-          InitialStates = nsa.InitialStates |> Set.map (fun x -> idDict.[x]) }
+            InitialStates = nsa.InitialStates |> Set.map (fun x -> idDict.[x])
+        }
 
-    let mapAPs (f: 'L -> 'U) (nsa: NSA<'T, 'L>) =
-        { Skeleton = NondeterministicAutomatonSkeleton.mapAPs f nsa.Skeleton
-          InitialStates = nsa.InitialStates }
+    let mapAPs (f : 'L -> 'U) (nsa : NSA<'T, 'L>) =
+        {
+            Skeleton = NondeterministicAutomatonSkeleton.mapAPs f nsa.Skeleton
+            InitialStates = nsa.InitialStates
+        }
 
     let trueAutomaton () : NSA<int, 'L> =
-        { NSA.Skeleton =
-            { States = set ([ 0 ])
-              APs = []
-              Edges = [ 0, [ DNF.trueDNF, 0 ] ] |> Map.ofList }
-          InitialStates = set ([ 0 ]) }
+        {
+            NSA.Skeleton =
+                {
+                    States = set ([ 0 ])
+                    APs = []
+                    Edges = [ 0, [ DNF.trueDNF, 0 ] ] |> Map.ofList
+                }
+            InitialStates = set ([ 0 ])
+        }
 
     let falseAutomaton () : NSA<int, 'L> =
-        { NSA.Skeleton =
-            { States = set ([ 0 ])
-              APs = []
-              Edges = [ 0, List.empty ] |> Map.ofList }
-          InitialStates = set ([ 0 ]) }
+        {
+            NSA.Skeleton =
+                {
+                    States = set ([ 0 ])
+                    APs = []
+                    Edges = [ 0, List.empty ] |> Map.ofList
+                }
+            InitialStates = set ([ 0 ])
+        }
 
-    let toHoaString (stateStringer: 'T -> String) (alphStringer: 'L -> String) (nsa: NSA<'T, 'L>) =
+    let toHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) (nsa : NSA<'T, 'L>) =
         (nsa :> AbstractAutomaton<'T, 'L>).ToHoaString stateStringer alphStringer
 
-    let findError (nsa: NSA<'T, 'L>) =
+    let findError (nsa : NSA<'T, 'L>) =
         (nsa :> AbstractAutomaton<'T, 'L>).FindError()
 
-    let bringToSameAPs (autList: list<NSA<'T, 'L>>) =
+    let bringToSameAPs (autList : list<NSA<'T, 'L>>) =
         autList
         |> List.map (fun x -> x.Skeleton)
         |> NondeterministicAutomatonSkeleton.bringSkeletonsToSameAps
         |> List.mapi (fun i x -> { autList.[i] with Skeleton = x })
 
-    let bringPairToSameAPs (nsa1: NSA<'T, 'L>) (nsa2: NSA<'T, 'L>) =
+    let bringPairToSameAPs (nsa1 : NSA<'T, 'L>) (nsa2 : NSA<'T, 'L>) =
         let sk1, sk2 =
             NondeterministicAutomatonSkeleton.bringSkeletonPairToSameAps nsa1.Skeleton nsa2.Skeleton
 
         { nsa1 with Skeleton = sk1 }, { nsa2 with Skeleton = sk2 }
 
-    let addAPs (aps: list<'L>) (nsa: NSA<'T, 'L>) =
+    let addAPs (aps : list<'L>) (nsa : NSA<'T, 'L>) =
         { nsa with
-            Skeleton = NondeterministicAutomatonSkeleton.addAPsToSkeleton aps nsa.Skeleton }
+            Skeleton = NondeterministicAutomatonSkeleton.addAPsToSkeleton aps nsa.Skeleton
+        }
 
-    let fixAPs (aps: list<'L>) (nsa: NSA<'T, 'L>) =
+    let fixAPs (aps : list<'L>) (nsa : NSA<'T, 'L>) =
         { nsa with
-            Skeleton = NondeterministicAutomatonSkeleton.fixAPsToSkeleton aps nsa.Skeleton }
+            Skeleton = NondeterministicAutomatonSkeleton.fixAPsToSkeleton aps nsa.Skeleton
+        }
 
-    let projectToTargetAPs (newAPs: list<'L>) (nsa: NSA<int, 'L>) =
+    let projectToTargetAPs (newAPs : list<'L>) (nsa : NSA<int, 'L>) =
         { nsa with
-            Skeleton = NondeterministicAutomatonSkeleton.projectToTargetAPs newAPs nsa.Skeleton }
+            Skeleton = NondeterministicAutomatonSkeleton.projectToTargetAPs newAPs nsa.Skeleton
+        }
 
-    let computeBisimulationQuotient (nsa: NSA<int, 'L>) =
+    let computeBisimulationQuotient (nsa : NSA<int, 'L>) =
         let skeleton, m =
             NondeterministicAutomatonSkeleton.computeBisimulationQuotient (fun _ -> 0) nsa.Skeleton
 
-        { NSA.Skeleton = skeleton
-          InitialStates = nsa.InitialStates |> Set.map (fun x -> m.[x]) }
+        {
+            NSA.Skeleton = skeleton
+            InitialStates = nsa.InitialStates |> Set.map (fun x -> m.[x])
+        }

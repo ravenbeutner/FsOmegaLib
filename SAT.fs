@@ -29,14 +29,14 @@ type Literal<'T> =
         | NL x -> x
 
 module Literal =
-    let getValue (l: Literal<'T>) = l.Value
+    let getValue (l : Literal<'T>) = l.Value
 
-    let map f (l: Literal<'T>) =
+    let map f (l : Literal<'T>) =
         match l with
         | PL x -> PL(f x)
         | NL x -> NL(f x)
 
-    let isConjunctionSat (c: list<Literal<'T>>) =
+    let isConjunctionSat (c : list<Literal<'T>>) =
         let d = new Dictionary<_, _>()
 
         let mutable br = false
@@ -66,7 +66,7 @@ module Literal =
 
         isSat
 
-    let simplifyConjunction (c: list<Literal<'T>>) =
+    let simplifyConjunction (c : list<Literal<'T>>) =
         let d = new Dictionary<_, _>()
 
         let mutable br = false
@@ -98,16 +98,16 @@ module Literal =
 
         isSat
 
-type DNF<'T when 'T: comparison> = list<list<Literal<'T>>>
+type DNF<'T when 'T : comparison> = list<list<Literal<'T>>>
 
 module DNF =
-    let isSat (dnf: DNF<'T>) =
+    let isSat (dnf : DNF<'T>) =
         dnf |> List.exists (fun c -> Literal.isConjunctionSat c)
 
-    let simplify (dnf: DNF<'T>) =
+    let simplify (dnf : DNF<'T>) =
         List.choose Literal.simplifyConjunction dnf
 
-    let print (dnf: DNF<'T>) =
+    let print (dnf : DNF<'T>) =
         let printConjunct c =
             if List.isEmpty c then
                 "t"
@@ -116,7 +116,8 @@ module DNF =
                 |> List.map (fun l ->
                     match l with
                     | PL x -> string x
-                    | NL x -> "!" + string x)
+                    | NL x -> "!" + string x
+                )
                 |> List.reduce (fun a b -> a + "&" + b)
 
         if List.isEmpty dnf then
@@ -126,22 +127,24 @@ module DNF =
             |> List.map (fun x -> "(" + printConjunct x + ")")
             |> List.reduce (fun a b -> a + "|" + b)
 
-    let eval (A: 'T -> bool) (dnf: DNF<'T>) =
+    let eval (A : 'T -> bool) (dnf : DNF<'T>) =
         dnf
         |> List.exists (fun c ->
             c
             |> List.forall (fun l ->
                 match l with
                 | PL x -> A x
-                | NL x -> not (A x)))
+                | NL x -> not (A x)
+            )
+        )
 
-    let map (f: 'T -> 'U) (dnf: DNF<'T>) =
+    let map (f : 'T -> 'U) (dnf : DNF<'T>) =
         dnf |> List.map (List.map (fun x -> Literal.map f x))
 
-    let atoms (dnf: DNF<'T>) =
+    let atoms (dnf : DNF<'T>) =
         dnf |> List.map (List.map (fun x -> x.Value)) |> List.concat |> set
 
-    let fixValues (m: Map<'T, bool>) (dnf: DNF<'T>) =
+    let fixValues (m : Map<'T, bool>) (dnf : DNF<'T>) =
 
         let fixValuesInConjunct c =
             let getsUnsat =
@@ -149,7 +152,8 @@ module DNF =
                 |> List.exists (fun l ->
                     match l with
                     | PL x -> m.ContainsKey x && not m.[x]
-                    | NL x -> m.ContainsKey x && m.[x])
+                    | NL x -> m.ContainsKey x && m.[x]
+                )
 
             if getsUnsat then
                 None
@@ -158,24 +162,24 @@ module DNF =
 
         dnf |> List.choose fixValuesInConjunct
 
-    let existentialProjection (p: Set<'T>) (dnf: DNF<'T>) =
-        let projectConjunct (c: list<Literal<'T>>) =
+    let existentialProjection (p : Set<'T>) (dnf : DNF<'T>) =
+        let projectConjunct (c : list<Literal<'T>>) =
             c |> List.filter (fun l -> Set.contains l.Value p |> not)
 
         dnf |> List.map projectConjunct
 
-    let constructConjunction (dnfList: list<DNF<'T>>) =
+    let constructConjunction (dnfList : list<DNF<'T>>) =
         dnfList
         |> List.map seq
         |> Util.cartesianProduct
         |> Seq.choose (fun x -> List.concat x |> Literal.simplifyConjunction)
         |> Seq.toList
 
-    let trueDNF: DNF<'T> = [ [] ]
+    let trueDNF : DNF<'T> = [ [] ]
 
-    let falseDNF: DNF<'T> = []
+    let falseDNF : DNF<'T> = []
 
-type BooleanExpression<'T when 'T: comparison> =
+type BooleanExpression<'T when 'T : comparison> =
     | Atom of 'T
     | True
     | False
@@ -184,7 +188,7 @@ type BooleanExpression<'T when 'T: comparison> =
     | Or of list<BooleanExpression<'T>>
 
 module BooleanExpression =
-    let rec printInHoaFormat (b: BooleanExpression<'T>) =
+    let rec printInHoaFormat (b : BooleanExpression<'T>) =
         match b with
         | Atom x -> string x
         | True -> "t"
@@ -193,7 +197,7 @@ module BooleanExpression =
         | And l -> "(" + (l |> List.map (fun x -> printInHoaFormat x) |> String.concat "&") + ")"
         | Or l -> "(" + (l |> List.map (fun x -> printInHoaFormat x) |> String.concat "|") + ")"
 
-    let rec eval (A: 'T -> bool) (b: BooleanExpression<'T>) =
+    let rec eval (A : 'T -> bool) (b : BooleanExpression<'T>) =
         match b with
         | Atom x -> A x
         | True -> true
@@ -202,16 +206,16 @@ module BooleanExpression =
         | And l -> l |> List.forall (fun x -> eval A x)
         | Or l -> l |> List.exists (fun x -> eval A x)
 
-    let rec map (f: 'T -> 'U) (b: BooleanExpression<'T>) =
+    let rec map (f : 'T -> 'U) (b : BooleanExpression<'T>) =
         match b with
         | Atom x -> Atom(f x)
         | True -> True
         | False -> False
         | Neg c -> Neg(map f c)
         | And l -> l |> List.map (fun x -> map f x) |> And
-        | Or l -> l |> List.map (fun (x: BooleanExpression<'T>) -> map f x) |> Or
+        | Or l -> l |> List.map (fun (x : BooleanExpression<'T>) -> map f x) |> Or
 
-    let rec atoms (b: BooleanExpression<'T>) =
+    let rec atoms (b : BooleanExpression<'T>) =
         match b with
         | Atom x -> Set.singleton x
         | True
@@ -220,7 +224,7 @@ module BooleanExpression =
         | And l
         | Or l -> l |> List.map (fun x -> atoms x) |> Set.unionMany
 
-    let rec fixValues (m: Map<'T, bool>) (b: BooleanExpression<'T>) =
+    let rec fixValues (m : Map<'T, bool>) (b : BooleanExpression<'T>) =
         match b with
         | Atom x ->
             if m.ContainsKey x then
@@ -231,9 +235,9 @@ module BooleanExpression =
         | False -> False
         | Neg c -> Neg(fixValues m c)
         | And l -> l |> List.map (fun x -> fixValues m x) |> And
-        | Or l -> l |> List.map (fun (x: BooleanExpression<'T>) -> fixValues m x) |> Or
+        | Or l -> l |> List.map (fun (x : BooleanExpression<'T>) -> fixValues m x) |> Or
 
-let convertBooleanExpressionToDNF (e: BooleanExpression<'T>) : DNF<'T> =
+let convertBooleanExpressionToDNF (e : BooleanExpression<'T>) : DNF<'T> =
     let rec recursiveConverter e =
         match e with
         | Atom(x) -> [ [ PL x ] ]
@@ -257,7 +261,7 @@ let convertBooleanExpressionToDNF (e: BooleanExpression<'T>) : DNF<'T> =
 
     recursiveConverter e
 
-let convertDNFToBooleanExpression (dnf: DNF<'T>) =
+let convertDNFToBooleanExpression (dnf : DNF<'T>) =
     let mappedDisjunction =
         dnf
         |> List.map (fun conjunction ->
@@ -266,12 +270,14 @@ let convertDNFToBooleanExpression (dnf: DNF<'T>) =
                 |> List.map (fun l ->
                     match l with
                     | PL x -> Atom x
-                    | NL x -> Neg(Atom x))
+                    | NL x -> Neg(Atom x)
+                )
 
             match mappedConjunction with
             | [] -> BooleanExpression.True
             | [ x ] -> x
-            | _ -> And mappedConjunction)
+            | _ -> And mappedConjunction
+        )
 
     match mappedDisjunction with
     | [] -> BooleanExpression.False
@@ -282,7 +288,7 @@ let convertDNFToBooleanExpression (dnf: DNF<'T>) =
 module Parser =
     open FParsec
 
-    let booleanExpressionParser (atomParser: Parser<'T, unit>) : Parser<BooleanExpression<'T>, unit> =
+    let booleanExpressionParser (atomParser : Parser<'T, unit>) : Parser<BooleanExpression<'T>, unit> =
         let bcParser, bcParserRef = createParserForwardedToRef ()
 
         let atomParser = atomParser |>> (fun x -> BooleanExpression.Atom x)
@@ -293,7 +299,7 @@ module Parser =
 
         let parParser = skipChar '(' >>. bcParser .>> spaces .>> skipChar ')'
 
-        let oppBooleanExpression: OperatorPrecedenceParser<BooleanExpression<'T>, unit, unit> =
+        let oppBooleanExpression : OperatorPrecedenceParser<BooleanExpression<'T>, unit, unit> =
             new OperatorPrecedenceParser<BooleanExpression<'T>, unit, unit>()
 
         let addInfixOperator string precedence associativity f =
@@ -317,7 +323,7 @@ module Parser =
         bcParser
 
 
-    let dnfParser (atomParser: Parser<'T, unit>) : Parser<DNF<'T>, unit> =
+    let dnfParser (atomParser : Parser<'T, unit>) : Parser<DNF<'T>, unit> =
         let trueParser = stringReturn "t" DNF.trueDNF
 
         let falseParser = stringReturn "f" DNF.falseDNF

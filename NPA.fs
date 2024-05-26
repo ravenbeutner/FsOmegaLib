@@ -26,10 +26,12 @@ open AbstractAutomaton
 
 exception private NotWellFormedException of String
 
-type NPA<'T, 'L when 'T: comparison and 'L: comparison> =
-    { Skeleton: NondeterministicAutomatonSkeleton<'T, 'L>
-      InitialStates: Set<'T>
-      Color: Map<'T, int> }
+type NPA<'T, 'L when 'T : comparison and 'L : comparison> =
+    {
+        Skeleton : NondeterministicAutomatonSkeleton<'T, 'L>
+        InitialStates : Set<'T>
+        Color : Map<'T, int>
+    }
 
     member this.States = this.Skeleton.States
 
@@ -51,19 +53,21 @@ type NPA<'T, 'L when 'T: comparison and 'L: comparison> =
                 |> Set.iter (fun x ->
                     if this.Skeleton.States.Contains x |> not then
                         raise
-                        <| NotWellFormedException $"The initial state %A{x} is not contained in the set of states")
+                        <| NotWellFormedException $"The initial state %A{x} is not contained in the set of states"
+                )
 
 
                 this.Skeleton.States
                 |> Seq.iter (fun x ->
                     if this.Color.ContainsKey x |> not then
-                        raise <| NotWellFormedException $"No color defined for state $A{x}")
+                        raise <| NotWellFormedException $"No color defined for state $A{x}"
+                )
 
                 None
             with NotWellFormedException msg ->
                 Some msg
 
-        member this.ToHoaString (stateStringer: 'T -> String) (alphStringer: 'L -> String) =
+        member this.ToHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) =
             let stringWriter = new StringWriter()
 
             stringWriter.WriteLine("HOA: v1")
@@ -106,75 +110,92 @@ type NPA<'T, 'L when 'T: comparison and 'L: comparison> =
             stringWriter.ToString()
 
 module NPA =
-    let actuallyUsedAPs (npa: NPA<'T, 'L>) =
+    let actuallyUsedAPs (npa : NPA<'T, 'L>) =
         NondeterministicAutomatonSkeleton.actuallyUsedAPs npa.Skeleton
 
-    let convertStatesToInt (npa: NPA<'T, 'L>) =
+    let convertStatesToInt (npa : NPA<'T, 'L>) =
         let idDict = npa.Skeleton.States |> Seq.mapi (fun i x -> x, i) |> Map.ofSeq
 
-        { NPA.Skeleton =
-            npa.Skeleton
-            |> NondeterministicAutomatonSkeleton.mapStates (fun x -> idDict.[x])
+        {
+            NPA.Skeleton =
+                npa.Skeleton
+                |> NondeterministicAutomatonSkeleton.mapStates (fun x -> idDict.[x])
 
-          InitialStates = npa.InitialStates |> Set.map (fun x -> idDict.[x])
+            InitialStates = npa.InitialStates |> Set.map (fun x -> idDict.[x])
 
-          Color = npa.Color |> Map.toSeq |> Seq.map (fun (k, v) -> idDict.[k], v) |> Map.ofSeq }
+            Color = npa.Color |> Map.toSeq |> Seq.map (fun (k, v) -> idDict.[k], v) |> Map.ofSeq
+        }
 
-    let mapAPs (f: 'L -> 'U) (npa: NPA<'T, 'L>) =
-        { Skeleton = NondeterministicAutomatonSkeleton.mapAPs f npa.Skeleton
-          InitialStates = npa.InitialStates
-          Color = npa.Color }
+    let mapAPs (f : 'L -> 'U) (npa : NPA<'T, 'L>) =
+        {
+            Skeleton = NondeterministicAutomatonSkeleton.mapAPs f npa.Skeleton
+            InitialStates = npa.InitialStates
+            Color = npa.Color
+        }
 
     let trueAutomaton () : NPA<int, 'L> =
-        { NPA.Skeleton =
-            { AutomatonSkeleton.States = set ([ 0 ])
-              APs = []
-              Edges = [ 0, [ DNF.trueDNF, 0 ] ] |> Map.ofList }
-          InitialStates = Set.singleton 0
-          Color = [ 0, 0 ] |> Map.ofList }
+        {
+            NPA.Skeleton =
+                {
+                    AutomatonSkeleton.States = set ([ 0 ])
+                    APs = []
+                    Edges = [ 0, [ DNF.trueDNF, 0 ] ] |> Map.ofList
+                }
+            InitialStates = Set.singleton 0
+            Color = [ 0, 0 ] |> Map.ofList
+        }
 
     let falseAutomaton () : NPA<int, 'L> =
-        { NPA.Skeleton =
-            { AutomatonSkeleton.States = set ([ 0 ])
-              APs = []
-              Edges = [ 0, List.empty ] |> Map.ofList }
-          InitialStates = Set.singleton 0
-          Color = [ 0, 1 ] |> Map.ofList }
+        {
+            NPA.Skeleton =
+                {
+                    AutomatonSkeleton.States = set ([ 0 ])
+                    APs = []
+                    Edges = [ 0, List.empty ] |> Map.ofList
+                }
+            InitialStates = Set.singleton 0
+            Color = [ 0, 1 ] |> Map.ofList
+        }
 
-    let toHoaString (stateStringer: 'T -> String) (alphStringer: 'L -> String) (npa: NPA<'T, 'L>) =
+    let toHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) (npa : NPA<'T, 'L>) =
         (npa :> AbstractAutomaton<'T, 'L>).ToHoaString stateStringer alphStringer
 
-    let findError (npa: NPA<'T, 'L>) =
+    let findError (npa : NPA<'T, 'L>) =
         (npa :> AbstractAutomaton<'T, 'L>).FindError()
 
-    let bringToSameAPs (autList: list<NPA<'T, 'L>>) =
+    let bringToSameAPs (autList : list<NPA<'T, 'L>>) =
         autList
         |> List.map (fun x -> x.Skeleton)
         |> NondeterministicAutomatonSkeleton.bringSkeletonsToSameAps
         |> List.mapi (fun i x -> { autList.[i] with Skeleton = x })
 
-    let bringPairToSameAPs (npa1: NPA<'T, 'L>) (npa2: NPA<'T, 'L>) =
+    let bringPairToSameAPs (npa1 : NPA<'T, 'L>) (npa2 : NPA<'T, 'L>) =
         let sk1, sk2 =
             NondeterministicAutomatonSkeleton.bringSkeletonPairToSameAps npa1.Skeleton npa2.Skeleton
 
         { npa1 with Skeleton = sk1 }, { npa2 with Skeleton = sk2 }
 
-    let addAPs (aps: list<'L>) (npa: NPA<'T, 'L>) =
+    let addAPs (aps : list<'L>) (npa : NPA<'T, 'L>) =
         { npa with
-            Skeleton = NondeterministicAutomatonSkeleton.addAPsToSkeleton aps npa.Skeleton }
+            Skeleton = NondeterministicAutomatonSkeleton.addAPsToSkeleton aps npa.Skeleton
+        }
 
-    let fixAPs (aps: list<'L>) (npa: NPA<'T, 'L>) =
+    let fixAPs (aps : list<'L>) (npa : NPA<'T, 'L>) =
         { npa with
-            Skeleton = NondeterministicAutomatonSkeleton.fixAPsToSkeleton aps npa.Skeleton }
+            Skeleton = NondeterministicAutomatonSkeleton.fixAPsToSkeleton aps npa.Skeleton
+        }
 
-    let projectToTargetAPs (newAPs: list<'L>) (npa: NPA<int, 'L>) =
+    let projectToTargetAPs (newAPs : list<'L>) (npa : NPA<int, 'L>) =
         { npa with
-            Skeleton = NondeterministicAutomatonSkeleton.projectToTargetAPs newAPs npa.Skeleton }
+            Skeleton = NondeterministicAutomatonSkeleton.projectToTargetAPs newAPs npa.Skeleton
+        }
 
-    let computeBisimulationQuotient (npa: NPA<int, 'L>) =
+    let computeBisimulationQuotient (npa : NPA<int, 'L>) =
         let skeleton, m =
             NondeterministicAutomatonSkeleton.computeBisimulationQuotient (fun x -> npa.Color.[x]) npa.Skeleton
 
-        { NPA.Skeleton = skeleton
-          InitialStates = npa.InitialStates |> Set.map (fun x -> m.[x])
-          Color = npa.Color |> Map.toSeq |> Seq.map (fun (s, c) -> m.[s], c) |> Map.ofSeq }
+        {
+            NPA.Skeleton = skeleton
+            InitialStates = npa.InitialStates |> Set.map (fun x -> m.[x])
+            Color = npa.Color |> Map.toSeq |> Seq.map (fun (s, c) -> m.[s], c) |> Map.ofSeq
+        }

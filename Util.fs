@@ -19,7 +19,7 @@ module internal FsOmegaLib.Util
 
 open System
 
-let rec cartesianProduct (LL: list<seq<'a>>) =
+let rec cartesianProduct (LL : list<seq<'a>>) =
     match LL with
     | [] -> Seq.singleton []
     | L :: Ls ->
@@ -38,11 +38,13 @@ let rec computeBooleanPowerSet n =
 module SubprocessUtil =
 
     type SubprocessResult =
-        { Stdout: String
-          Stderr: String
-          ExitCode: int }
+        {
+            Stdout : String
+            Stderr : String
+            ExitCode : int
+        }
 
-    let executeSubprocess (cmd: string) (arg: string) =
+    let executeSubprocess (cmd : string) (arg : string) =
         let psi = System.Diagnostics.ProcessStartInfo(cmd, arg)
 
         psi.UseShellExecute <- false
@@ -60,6 +62,8 @@ module SubprocessUtil =
         p.BeginOutputReadLine()
         p.WaitForExit()
 
-        { SubprocessResult.Stdout = output.ToString().Trim()
-          Stderr = error.ToString().Trim()
-          ExitCode = p.ExitCode }
+        {
+            SubprocessResult.Stdout = output.ToString().Trim()
+            Stderr = error.ToString().Trim()
+            ExitCode = p.ExitCode
+        }

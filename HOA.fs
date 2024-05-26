@@ -34,28 +34,36 @@ type AcceptanceCondition =
     | AccOr of AcceptanceCondition * AcceptanceCondition
 
 type private IntermediateAutomatonHeader =
-    { HoaVersion: option<string>
-      States: option<int>
-      Start: list<list<int>>
-      APs: option<list<String>>
-      Properties: list<String>
-      Tool: option<list<String>>
-      Name: option<String>
-      Acceptance: option<int * AcceptanceCondition>
-      AcceptanceName: option<String> }
+    {
+        HoaVersion : option<string>
+        States : option<int>
+        Start : list<list<int>>
+        APs : option<list<string>>
+        Properties : list<string>
+        Tool : option<list<string>>
+        Name : option<string>
+        Acceptance : option<int * AcceptanceCondition>
+        AcceptanceName : option<string>
+    }
 
 type AutomatonHeader =
-    { Start: list<list<int>>
-      APs: list<String>
-      Acceptance: int * AcceptanceCondition
-      AcceptanceName: String }
+    {
+        Start : list<list<int>>
+        APs : list<string>
+        Acceptance : int * AcceptanceCondition
+        AcceptanceName : String
+    }
 
 type AutomatonBody =
-    { StateMap: Map<int, Set<int> * list<DNF<int> * Set<int>>> }
+    {
+        StateMap : Map<int, Set<int> * list<DNF<int> * Set<int>>>
+    }
 
 type HoaAutomaton =
-    { Header: AutomatonHeader
-      Body: AutomatonBody }
+    {
+        Header : AutomatonHeader
+        Body : AutomatonBody
+    }
 
 module Parser =
     open FParsec
@@ -81,7 +89,7 @@ module Parser =
         spacesNoNewline >>. many (multilineCommentParser .>> spacesNoNewline) |>> ignore
 
     let private headerParser =
-        let headerLineParser (header: IntermediateAutomatonHeader) =
+        let headerLineParser (header : IntermediateAutomatonHeader) =
 
             let hoaParser =
                 skipString "HOA:"
@@ -112,8 +120,10 @@ module Parser =
 
                 skipString "AP:"
                 >>. wsNoNewline
-                >>. pipe2 pint32 (wsNoNewline >>. many (escapedStringParser .>> wsNoNewline)) (fun _ y ->
-                    { header with APs = Some y })
+                >>. pipe2
+                    pint32
+                    (wsNoNewline >>. many (escapedStringParser .>> wsNoNewline))
+                    (fun _ y -> { header with APs = Some y })
 
             let statesParser =
                 skipString "States:" >>. wsNoNewline >>. pint32
@@ -125,7 +135,8 @@ module Parser =
                 >>. (sepBy1 (pint32 .>> wsNoNewline) (skipChar '&' .>> wsNoNewline))
                 |>> fun x ->
                     { header with
-                        Start = x :: header.Start }
+                        Start = x :: header.Start
+                    }
 
 
             let propertiesParser =
@@ -134,7 +145,8 @@ module Parser =
                 >>. many1 (many1Chars (satisfy (fun x -> x <> ' ' && x <> '\n')) .>> wsNoNewline)
                 |>> fun x ->
                     { header with
-                        Properties = x @ header.Properties }
+                        Properties = x @ header.Properties
+                    }
 
 
             let accNameParser =
@@ -143,7 +155,8 @@ module Parser =
                 >>. many1 (many1Chars (satisfy (fun x -> x <> ' ' && x <> '\n')) .>> wsNoNewline)
                 |>> fun x ->
                     { header with
-                        AcceptanceName = String.concat " " x |> Some }
+                        AcceptanceName = String.concat " " x |> Some
+                    }
 
             let accParser =
                 let accParser, accParserRef = createParserForwardedToRef ()
@@ -195,29 +208,33 @@ module Parser =
                 |>> fun (x, y) -> { header with Acceptance = Some(x, y) }
 
             choice
-                [ hoaParser
-                  nameParser
-                  toolParser
-                  apParser
-                  statesParser
-                  startParser
-                  propertiesParser
-                  accNameParser
-                  accParser ]
+                [
+                    hoaParser
+                    nameParser
+                    toolParser
+                    apParser
+                    statesParser
+                    startParser
+                    propertiesParser
+                    accNameParser
+                    accParser
+                ]
             .>> ws
 
-        let initHeader: IntermediateAutomatonHeader =
-            { HoaVersion = None
-              States = None
-              Start = []
-              APs = None
-              Properties = []
-              Tool = None
-              Name = None
-              Acceptance = None
-              AcceptanceName = None }
+        let initHeader : IntermediateAutomatonHeader =
+            {
+                HoaVersion = None
+                States = None
+                Start = []
+                APs = None
+                Properties = []
+                Tool = None
+                Name = None
+                Acceptance = None
+                AcceptanceName = None
+            }
 
-        let rec headerParserRec (header: IntermediateAutomatonHeader) =
+        let rec headerParserRec (header : IntermediateAutomatonHeader) =
             (attempt (headerLineParser header) >>= headerParserRec) <|>% header
 
         headerParserRec initHeader
@@ -228,9 +245,11 @@ module Parser =
                 pchar '['
                 >>. ws
                 >>. choice
-                        [ (attempt (SAT.Parser.dnfParser pint32))
-                          (SAT.Parser.booleanExpressionParser pint32
-                           |>> fun x -> SAT.convertBooleanExpressionToDNF x) ]
+                        [
+                            (attempt (SAT.Parser.dnfParser pint32))
+                            (SAT.Parser.booleanExpressionParser pint32
+                             |>> fun x -> SAT.convertBooleanExpressionToDNF x)
+                        ]
                 .>> ws
                 .>> pchar ']'
 
@@ -261,7 +280,7 @@ module Parser =
 
     exception private HoaParsingException of String
 
-    let parseHoaAutomaton (s: string) =
+    let parseHoaAutomaton (s : string) =
         try
             let res = run hoaParser s
 
@@ -270,17 +289,19 @@ module Parser =
                 | Failure(err, _, _) -> raise <| HoaParsingException err
                 | Success(x, _, _) -> x
 
-            let h: AutomatonHeader =
-                { AutomatonHeader.Start = header.Start
-                  APs =
-                    header.APs
-                    |> Option.defaultWith (fun _ -> raise <| HoaParsingException $"No APs specified")
-                  Acceptance =
-                    header.Acceptance
-                    |> Option.defaultWith (fun _ -> raise <| HoaParsingException $"No acceptance specified")
-                  AcceptanceName =
-                    header.AcceptanceName
-                    |> Option.defaultWith (fun _ -> raise <| HoaParsingException $"No acceptance name given") }
+            let h : AutomatonHeader =
+                {
+                    AutomatonHeader.Start = header.Start
+                    APs =
+                        header.APs
+                        |> Option.defaultWith (fun _ -> raise <| HoaParsingException $"No APs specified")
+                    Acceptance =
+                        header.Acceptance
+                        |> Option.defaultWith (fun _ -> raise <| HoaParsingException $"No acceptance specified")
+                    AcceptanceName =
+                        header.AcceptanceName
+                        |> Option.defaultWith (fun _ -> raise <| HoaParsingException $"No acceptance name given")
+                }
 
             { HoaAutomaton.Header = h; Body = body } |> Result.Ok
         with HoaParsingException err ->

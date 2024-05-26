@@ -19,7 +19,7 @@ module FsOmegaLib.LTL
 
 open System
 
-type LTL<'T when 'T: comparison> =
+type LTL<'T when 'T : comparison> =
     | Atom of 'T
     | True
     | False
@@ -39,7 +39,7 @@ type LTL<'T when 'T: comparison> =
 
 module LTL =
 
-    let rec printInSpotFormat (varNames: 'T -> String) (formula: LTL<'T>) =
+    let rec printInSpotFormat (varNames : 'T -> String) (formula : LTL<'T>) =
         match formula with
         | Atom x -> varNames x
         | True -> "1"
@@ -103,7 +103,7 @@ module LTL =
             + printInSpotFormat varNames e2
             + ")"
 
-    let rec map (f: 'T -> 'U) (formula: LTL<'T>) =
+    let rec map (f : 'T -> 'U) (formula : LTL<'T>) =
         match formula with
         | Atom x -> Atom(f x)
         | True -> True
@@ -122,7 +122,7 @@ module LTL =
         | X e -> X(map f e)
         | Not e -> Not(map f e)
 
-    let rec bind (f: 'T -> LTL<'U>) (formula: LTL<'T>) =
+    let rec bind (f : 'T -> LTL<'U>) (formula : LTL<'T>) =
         match formula with
         | Atom x -> f x
         | True -> True
@@ -141,7 +141,7 @@ module LTL =
         | X e -> X(bind f e)
         | Not e -> Not(bind f e)
 
-    let rec allAtoms (formula: LTL<'T>) =
+    let rec allAtoms (formula : LTL<'T>) =
         match formula with
         | Atom x -> Set.singleton x
         | True
@@ -160,7 +160,7 @@ module LTL =
         | X e
         | Not e -> allAtoms e
 
-    let rec size (formula: LTL<'T>) =
+    let rec size (formula : LTL<'T>) =
         match formula with
         | Atom _
         | True
@@ -179,7 +179,7 @@ module LTL =
         | X e
         | Not e -> (size e) + 1
 
-    let rec allSubformulas (formula: LTL<'T>) =
+    let rec allSubformulas (formula : LTL<'T>) =
         let subFormulas =
             match formula with
             | Atom _
@@ -205,7 +205,7 @@ module LTL =
 module Parser =
     open FParsec
 
-    let ltlParser (atomParser: Parser<'T, unit>) =
+    let ltlParser (atomParser : Parser<'T, unit>) =
         let ltlParser, ltlParserRef = createParserForwardedToRef ()
 
         let trueParser = stringReturn "1" True <|> stringReturn "true" True
@@ -251,7 +251,7 @@ module Parser =
 
         ltlParser
 
-    let parseLTL (atomParser: Parser<'T, unit>) s =
+    let parseLTL (atomParser : Parser<'T, unit>) s =
         let full = ltlParser atomParser .>> spaces .>> eof
         let res = run full s
 

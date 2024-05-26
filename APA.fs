@@ -29,10 +29,12 @@ open NBA
 
 exception private NotWellFormedException of String
 
-type APA<'T, 'L when 'T: comparison and 'L: comparison> =
-    { Skeleton: AlternatingAutomatonSkeleton<'T, 'L>
-      InitialStates: Set<Set<'T>> // Disjunction of Conjunction
-      Color: Map<'T, int> }
+type APA<'T, 'L when 'T : comparison and 'L : comparison> =
+    {
+        Skeleton : AlternatingAutomatonSkeleton<'T, 'L>
+        InitialStates : Set<Set<'T>> // Disjunction of Conjunction
+        Color : Map<'T, int>
+    }
 
     member this.States = this.Skeleton.States
 
@@ -54,19 +56,21 @@ type APA<'T, 'L when 'T: comparison and 'L: comparison> =
                     Set.iter (fun x ->
                         if this.Skeleton.States.Contains x |> not then
                             raise
-                            <| NotWellFormedException $"The initial state %A{x} is not contained in the set of states")
+                            <| NotWellFormedException $"The initial state %A{x} is not contained in the set of states"
+                    )
                 )
 
                 this.Skeleton.States
                 |> Seq.iter (fun x ->
                     if this.Color.ContainsKey x |> not then
-                        raise <| NotWellFormedException $"No color defined for state $A{x}")
+                        raise <| NotWellFormedException $"No color defined for state $A{x}"
+                )
 
                 None
             with NotWellFormedException msg ->
                 Some msg
 
-        member this.ToHoaString (stateStringer: 'T -> String) (alphStringer: 'L -> String) =
+        member this.ToHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) =
             let stringWriter = new StringWriter()
 
             stringWriter.WriteLine("HOA: v1")
@@ -112,93 +116,115 @@ type APA<'T, 'L when 'T: comparison and 'L: comparison> =
 
 
 module APA =
-    let actuallyUsedAPs (apa: APA<'T, 'L>) =
+    let actuallyUsedAPs (apa : APA<'T, 'L>) =
         AlternatingAutomatonSkeleton.actuallyUsedAPs apa.Skeleton
 
-    let convertStatesToInt (apa: APA<'T, 'L>) =
+    let convertStatesToInt (apa : APA<'T, 'L>) =
         let idDict = apa.Skeleton.States |> Seq.mapi (fun i x -> x, i) |> Map.ofSeq
 
-        { APA.Skeleton = apa.Skeleton |> AlternatingAutomatonSkeleton.mapStates (fun x -> idDict.[x])
+        {
+            APA.Skeleton = apa.Skeleton |> AlternatingAutomatonSkeleton.mapStates (fun x -> idDict.[x])
 
-          InitialStates = apa.InitialStates |> Set.map (Set.map (fun x -> idDict.[x]))
+            InitialStates = apa.InitialStates |> Set.map (Set.map (fun x -> idDict.[x]))
 
-          Color = apa.Color |> Map.toSeq |> Seq.map (fun (k, v) -> idDict.[k], v) |> Map.ofSeq }
+            Color = apa.Color |> Map.toSeq |> Seq.map (fun (k, v) -> idDict.[k], v) |> Map.ofSeq
+        }
 
-    let fromDPA (dpa: DPA<'T, 'L>) =
-        { APA.Skeleton = dpa.Skeleton |> NondeterministicAutomatonSkeleton.toAlternatingAutomatonSkeleton
-          InitialStates = dpa.InitialState |> Set.singleton |> Set.singleton
-          Color = dpa.Color }
+    let fromDPA (dpa : DPA<'T, 'L>) =
+        {
+            APA.Skeleton = dpa.Skeleton |> NondeterministicAutomatonSkeleton.toAlternatingAutomatonSkeleton
+            InitialStates = dpa.InitialState |> Set.singleton |> Set.singleton
+            Color = dpa.Color
+        }
 
-    let fromNBA (nba: NBA<'T, 'L>) =
-        { APA.Skeleton = nba.Skeleton |> NondeterministicAutomatonSkeleton.toAlternatingAutomatonSkeleton
-          InitialStates = nba.InitialStates |> Set.singleton
-          Color =
-            nba.States
-            |> Seq.map (fun x -> x, (if nba.AcceptingStates.Contains x then 2 else 1))
-            |> Map.ofSeq }
+    let fromNBA (nba : NBA<'T, 'L>) =
+        {
+            APA.Skeleton = nba.Skeleton |> NondeterministicAutomatonSkeleton.toAlternatingAutomatonSkeleton
+            InitialStates = nba.InitialStates |> Set.singleton
+            Color =
+                nba.States
+                |> Seq.map (fun x -> x, (if nba.AcceptingStates.Contains x then 2 else 1))
+                |> Map.ofSeq
+        }
 
-    let mapAPs (f: 'L -> 'U) (apa: APA<'T, 'L>) =
-        { Skeleton = AlternatingAutomatonSkeleton.mapAPs f apa.Skeleton
-          InitialStates = apa.InitialStates
-          Color = apa.Color }
+    let mapAPs (f : 'L -> 'U) (apa : APA<'T, 'L>) =
+        {
+            Skeleton = AlternatingAutomatonSkeleton.mapAPs f apa.Skeleton
+            InitialStates = apa.InitialStates
+            Color = apa.Color
+        }
 
     let trueAutomaton () : APA<int, 'L> =
-        { APA.Skeleton =
-            { AlternatingAutomatonSkeleton.States = set ([ 0 ])
-              APs = []
-              Edges = [ 0, [ DNF.trueDNF, Set.singleton 0 ] ] |> Map.ofList }
-          InitialStates = Set.singleton (Set.singleton 0)
-          Color = [ (0, 0) ] |> Map.ofList }
+        {
+            APA.Skeleton =
+                {
+                    AlternatingAutomatonSkeleton.States = set ([ 0 ])
+                    APs = []
+                    Edges = [ 0, [ DNF.trueDNF, Set.singleton 0 ] ] |> Map.ofList
+                }
+            InitialStates = Set.singleton (Set.singleton 0)
+            Color = [ (0, 0) ] |> Map.ofList
+        }
 
     let falseAutomaton () : APA<int, 'L> =
-        { APA.Skeleton =
-            { States = set ([ 0 ])
-              APs = []
-              Edges = [ 0, List.empty ] |> Map.ofList }
-          InitialStates = Set.singleton (Set.singleton 0)
-          Color = [ (0, 1) ] |> Map.ofList }
+        {
+            APA.Skeleton =
+                {
+                    States = set ([ 0 ])
+                    APs = []
+                    Edges = [ 0, List.empty ] |> Map.ofList
+                }
+            InitialStates = Set.singleton (Set.singleton 0)
+            Color = [ (0, 1) ] |> Map.ofList
+        }
 
-    let toHoaString (stateStringer: 'T -> String) (alphStringer: 'L -> String) (apa: APA<'T, 'L>) =
+    let toHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) (apa : APA<'T, 'L>) =
         (apa :> AbstractAutomaton<'T, 'L>).ToHoaString stateStringer alphStringer
 
-    let findError (apa: APA<'T, 'L>) =
+    let findError (apa : APA<'T, 'L>) =
         (apa :> AbstractAutomaton<'T, 'L>).FindError()
 
-    let bringToSameAPs (autList: list<APA<'T, 'L>>) =
+    let bringToSameAPs (autList : list<APA<'T, 'L>>) =
         autList
         |> List.map (fun x -> x.Skeleton)
         |> AlternatingAutomatonSkeleton.bringSkeletonsToSameAps
         |> List.mapi (fun i x -> { autList.[i] with Skeleton = x })
 
-    let bringPairToSameAPs (apa1: APA<'T, 'L>) (apa2: APA<'T, 'L>) =
+    let bringPairToSameAPs (apa1 : APA<'T, 'L>) (apa2 : APA<'T, 'L>) =
         let sk1, sk2 =
             AlternatingAutomatonSkeleton.bringSkeletonPairToSameAps apa1.Skeleton apa2.Skeleton
 
         { apa1 with Skeleton = sk1 }, { apa2 with Skeleton = sk2 }
 
-    let addAPs (aps: list<'L>) (apa: APA<'T, 'L>) =
+    let addAPs (aps : list<'L>) (apa : APA<'T, 'L>) =
         { apa with
-            Skeleton = AlternatingAutomatonSkeleton.addAPsToSkeleton aps apa.Skeleton }
+            Skeleton = AlternatingAutomatonSkeleton.addAPsToSkeleton aps apa.Skeleton
+        }
 
-    let fixAPs (aps: list<'L>) (apa: APA<'T, 'L>) =
+    let fixAPs (aps : list<'L>) (apa : APA<'T, 'L>) =
         { apa with
-            Skeleton = AlternatingAutomatonSkeleton.fixAPsToSkeleton aps apa.Skeleton }
+            Skeleton = AlternatingAutomatonSkeleton.fixAPsToSkeleton aps apa.Skeleton
+        }
 
-    let projectToTargetAPs (newAPs: list<'L>) (apa: APA<'T, 'L>) =
+    let projectToTargetAPs (newAPs : list<'L>) (apa : APA<'T, 'L>) =
         { apa with
-            Skeleton = AlternatingAutomatonSkeleton.projectToTargetAPs newAPs apa.Skeleton }
+            Skeleton = AlternatingAutomatonSkeleton.projectToTargetAPs newAPs apa.Skeleton
+        }
 
-    let computeBisimulationQuotient (apa: APA<'T, 'L>) =
+    let computeBisimulationQuotient (apa : APA<'T, 'L>) =
         let bisimSkeleton, m =
             AutomatonSkeleton.AlternatingAutomatonSkeleton.computeBisimulationQuotient
                 (fun x -> apa.Color.[x])
                 apa.Skeleton
 
-        { APA.Skeleton = bisimSkeleton
-          InitialStates = apa.InitialStates |> Set.map (Set.map (fun x -> m.[x]))
-          Color =
-            bisimSkeleton.States
-            |> Seq.map (fun x ->
-                let s = m |> Map.toSeq |> Seq.find (fun (_, y) -> x = y) |> fst
-                x, apa.Color.[s])
-            |> Map.ofSeq }
+        {
+            APA.Skeleton = bisimSkeleton
+            InitialStates = apa.InitialStates |> Set.map (Set.map (fun x -> m.[x]))
+            Color =
+                bisimSkeleton.States
+                |> Seq.map (fun x ->
+                    let s = m |> Map.toSeq |> Seq.find (fun (_, y) -> x = y) |> fst
+                    x, apa.Color.[s]
+                )
+                |> Map.ofSeq
+        }
