@@ -144,7 +144,7 @@ module DNF =
     let atoms (dnf : DNF<'T>) =
         dnf |> List.map (List.map (fun x -> x.Value)) |> List.concat |> set
 
-    let fixValues (m : Map<'T, bool>) (dnf : DNF<'T>) =
+    let fixValues (m : Map<'T, bool>) (dnf : DNF<'T>) : DNF<'T> =
 
         let fixValuesInConjunct c =
             let getsUnsat =
@@ -162,6 +162,34 @@ module DNF =
 
         dnf |> List.choose fixValuesInConjunct
 
+    let fixValuesLazily (m : 'T -> option<bool>) (dnf : DNF<'T>) : DNF<'T> =
+        let rec fixValuesInConjunct (c: Literal<'T> list) (acc: Literal<'T> list) =
+            match c with 
+            | [] -> Some acc 
+            | (PL x) :: xs -> 
+                match m x with 
+                | None -> fixValuesInConjunct xs (PL x :: acc)
+                | Some true -> fixValuesInConjunct xs acc 
+                | Some false -> None // The clause becomes FALSE
+            | (NL x) :: xs -> 
+                match m x with 
+                | None -> fixValuesInConjunct xs (NL x :: acc)
+                | Some false -> fixValuesInConjunct xs acc 
+                | Some true -> None // The clause becomes FALSE
+
+        let rec t (dnf) (acc) = 
+            match dnf with 
+            | [] -> acc 
+            | c :: xs -> 
+                match fixValuesInConjunct c [] with 
+                | None -> 
+                    // Conjunct becomes FALSE 
+                    t xs acc 
+                | Some c' -> 
+                    t xs (c' :: acc) 
+
+        t dnf []
+        
     let existentialProjection (p : Set<'T>) (dnf : DNF<'T>) =
         let projectConjunct (c : list<Literal<'T>>) =
             c |> List.filter (fun l -> Set.contains l.Value p |> not)

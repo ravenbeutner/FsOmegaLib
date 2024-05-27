@@ -17,7 +17,6 @@
 
 module FsOmegaLib.Operations
 
-open System
 open System.IO
 
 open Util.SubprocessUtil
@@ -34,8 +33,8 @@ open LTL
 
 type FsOmegaLibError =
     {
-        Info : String // A user-friendly error message that should be displayed to the user
-        DebugInfo : String
+        Info : string // A user-friendly error message that should be displayed to the user
+        DebugInfo : string
     } // Additional Information that can be used for debugging
 
 type AutomataOperationResult<'T> =
@@ -303,9 +302,9 @@ module private HoaConversion =
             Color = body.StateMap |> Map.map (fun _ x -> x |> fst |> Set.toList |> List.head)
         }
 
-    let resultToGNBA (res : String) (f : String -> 'L) =
+    let resultToGNBA (res : string) =
         match HOA.Parser.parseHoaAutomaton res with
-        | Ok hoa -> convertHoaToGNBA hoa |> GNBA.mapAPs f
+        | Ok hoa -> convertHoaToGNBA hoa
         | Error err ->
             raise
             <| ConversionException
@@ -314,9 +313,9 @@ module private HoaConversion =
                     DebugInfo = $"Could not parse HANOI automaton into GNBA: %s{err}"
                 }
 
-    let resultToNBA (res : String) (f : String -> 'L) =
+    let resultToNBA (res : string) =
         match HOA.Parser.parseHoaAutomaton res with
-        | Ok hoa -> convertHoaToNBA hoa |> NBA.mapAPs f
+        | Ok hoa -> convertHoaToNBA hoa
         | Error err ->
             raise
             <| ConversionException
@@ -325,9 +324,9 @@ module private HoaConversion =
                     DebugInfo = $"Could not parse HANOI automaton into NBA: %s{err}"
                 }
 
-    let resultToDPA (res : String) (f : String -> 'L) =
+    let resultToDPA (res : string) =
         match HOA.Parser.parseHoaAutomaton res with
-        | Ok hoa -> convertHoaToDPA hoa |> DPA.mapAPs f
+        | Ok hoa -> convertHoaToDPA hoa
         | Error err ->
             raise
             <| ConversionException
@@ -336,9 +335,9 @@ module private HoaConversion =
                     DebugInfo = $"Could not parse HANOI automaton into DPA: %s{err}"
                 }
 
-    let resultToNSA (res : String) (f : String -> 'L) =
+    let resultToNSA (res : string) =
         match HOA.Parser.parseHoaAutomaton res with
-        | Ok hoa -> convertHoaToNSA hoa |> NSA.mapAPs f
+        | Ok hoa -> convertHoaToNSA hoa
         | Error err ->
             raise
             <| ConversionException
@@ -347,9 +346,9 @@ module private HoaConversion =
                     DebugInfo = $"Could not parse HANOI automaton into NSA: %s{err}"
                 }
 
-    let resultToNPA (res : String) (f : String -> 'L) =
+    let resultToNPA (res : string) =
         match HOA.Parser.parseHoaAutomaton res with
-        | Ok hoa -> convertHoaToNPA hoa |> NPA.mapAPs f
+        | Ok hoa -> convertHoaToNPA hoa
         | Error err ->
             raise
             <| ConversionException
@@ -358,9 +357,9 @@ module private HoaConversion =
                     DebugInfo = $"Could not parse HANOI automaton into NPA: %s{err}"
                 }
 
-    let resultToAPA (res : String) (f : String -> 'L) =
+    let resultToAPA (res : string) =
         match HOA.Parser.parseHoaAutomaton res with
-        | Ok hoa -> convertHoaToAPA hoa |> APA.mapAPs f
+        | Ok hoa -> convertHoaToAPA hoa
         | Error err ->
             raise
             <| ConversionException
@@ -370,54 +369,41 @@ module private HoaConversion =
                 }
 
 
-module AutomatonConversions =
-    let convertToGNBA
+module AutomataUtil =
+    let operateHoaAndParse
         (debug : bool)
-        (intermediateFilesPath : String)
-        (autfiltPath : String)
-        (ef : Effort)
-        (aut : AbstractAutomaton<int, 'L>)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (args : string)
+        (outputputParser : string -> 'L)
+        (hoaString : string)
         =
         try
-            let dict, revDict =
-                aut.Skeleton.APs
-                |> List.mapi (fun i x ->
-                    let a = "l" + string i
-                    (x, a), (a, x)
-                )
-                |> List.unzip
-                |> fun (x, y) -> Map.ofList x, Map.ofList y
-
-            let s = aut.ToHoaString string (fun x -> dict.[x])
-
             let path = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
             let targetPath = Path.Combine [| intermediateFilesPath; "autRes.hoa" |]
 
-            File.WriteAllText(path, s)
+            File.WriteAllText(path, hoaString)
 
-            let arg =
-                "--small --" + Effort.asString ef + " -S --gba " + path + " -o " + targetPath
+            let arg = args + " " + path + " -o " + targetPath
 
-            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess Map.empty autfiltPath arg
 
             match res with
-            | { ExitCode = 0; Stderr = "" } ->
-                let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToGNBA c (fun x -> revDict.[x]) |> Success
+            | { ExitCode = 0; Stderr = "" } -> File.ReadAllText(targetPath) |> outputputParser |> Success
             | { ExitCode = exitCode; Stderr = stderr } ->
                 if exitCode <> 0 then
                     raise
                     <| ConversionException
                         {
                             Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (convert, GNBA); %i{exitCode}"
+                            DebugInfo = $"Unexpected exit code by spot: %i{exitCode}"
                         }
                 else
                     raise
                     <| ConversionException
                         {
                             Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (convert, GNBA); %s{stderr}"
+                            DebugInfo = $"Error by spot: %s{stderr}"
                         }
 
         with
@@ -427,888 +413,592 @@ module AutomatonConversions =
             Fail
                 {
                     Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (convert, GNBA); %s{e.Message}"
+                    DebugInfo = $"Unexpected error: %s{e.Message}"
                 }
 
-    let convertToNBA
+    let operateHoaAndParsePair
         (debug : bool)
-        (intermediateFilesPath : String)
-        (autfiltPath : String)
-        (ef : Effort)
-        (aut : AbstractAutomaton<int, 'L>)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (args : string)
+        (opp : string)
+        (outputputParser : string -> 'L)
+        (hoaString1 : string)
+        (hoaString2 : string)
         =
         try
-            let dict, revDict =
-                aut.Skeleton.APs
-                |> List.mapi (fun i x ->
-                    let a = "l" + string i
-                    (x, a), (a, x)
-                )
-                |> List.unzip
-                |> fun (x, y) -> Map.ofList x, Map.ofList y
-
-            let s = aut.ToHoaString string (fun x -> dict.[x])
-
-            let path = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
+            let path1 = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
+            let path2 = Path.Combine [| intermediateFilesPath; "aut2.hoa" |]
             let targetPath = Path.Combine [| intermediateFilesPath; "autRes.hoa" |]
 
-            File.WriteAllText(path, s)
+            File.WriteAllText(path1, hoaString1)
+            File.WriteAllText(path2, hoaString2)
 
-            let arg = "--small --" + Effort.asString ef + " -S -B " + path + " -o " + targetPath
+            let arg = args + " " + opp + path2 + " " + path1 + " -o " + targetPath
 
-            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess Map.empty autfiltPath arg
 
             match res with
-            | { ExitCode = 0; Stderr = "" } ->
-                let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToNBA c (fun x -> revDict.[x]) |> Success
+            | { ExitCode = 0; Stderr = "" } -> File.ReadAllText(targetPath) |> outputputParser |> Success
             | { ExitCode = exitCode; Stderr = stderr } ->
                 if exitCode <> 0 then
                     raise
                     <| ConversionException
                         {
                             Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (convert, NBA); %i{exitCode}"
+                            DebugInfo = $"Unexpected exit code by spot: %i{exitCode}"
                         }
                 else
                     raise
                     <| ConversionException
                         {
                             Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (convert, NPA); %s{stderr}"
+                            DebugInfo = $"Error by spot: %s{stderr}"
                         }
+
         with
         | _ when debug -> reraise ()
-        | ConversionException err -> Fail(err)
+        | ConversionException err -> Fail err
         | e ->
             Fail
                 {
                     Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (convert, NBA); %s{e.Message}"
+                    DebugInfo = $"Unexpected error: %s{e.Message}"
                 }
 
-    let convertToDPA
+    let stringifyAutomaton (aut : AbstractAutomaton<int, 'L>) =
+        let dict, revDict =
+            aut.Skeleton.APs
+            |> List.mapi (fun i x ->
+                let a = "l" + string i
+                (x, a), (a, x)
+            )
+            |> List.unzip
+            |> fun (x, y) -> Map.ofList x, Map.ofList y
+
+        let s = aut.ToHoaString string (fun x -> dict.[x])
+
+        s, revDict
+
+    let stringifyAutomatonPair (aut1 : AbstractAutomaton<int, 'L>) (aut2 : AbstractAutomaton<int, 'L>) =
+        let dict, revDict =
+            aut1.Skeleton.APs @ aut2.Skeleton.APs
+            |> List.mapi (fun i x ->
+                let a = "l" + string i
+                (x, a), (a, x)
+            )
+            |> List.unzip
+            |> fun (x, y) -> Map.ofList x, Map.ofList y
+
+        let s1 = aut1.ToHoaString string (fun x -> dict.[x])
+        let s2 = aut2.ToHoaString string (fun x -> dict.[x])
+
+        s1, s2, revDict
+
+    let operateHoaToGNBA
         (debug : bool)
-        (intermediateFilesPath : String)
-        (autfiltPath : String)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (operations : list<string>)
         (ef : Effort)
-        (aut : AbstractAutomaton<int, 'L>)
+        (apRemapping : string -> 'L)
+        (hoaString : string)
+        =
+
+        let args =
+            [ "--small"; "--" + Effort.asString ef; "-S"; "--gba" ] @ operations
+            |> String.concat " "
+
+        let hoaOutputputParser c =
+            c |> HoaConversion.resultToGNBA |> GNBA.mapAPs apRemapping
+
+        operateHoaAndParse debug intermediateFilesPath autfiltPath args hoaOutputputParser hoaString
+
+    let operateHoaToNBA
+        (debug : bool)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (operations : list<string>)
+        (ef : Effort)
+        (apRemapping : string -> 'L)
+        (hoaString : string)
+        =
+
+        let args =
+            [ "--small"; "--" + Effort.asString ef; "-S"; "-B" ] @ operations
+            |> String.concat " "
+
+        let hoaOutputputParser c =
+            c |> HoaConversion.resultToNBA |> NBA.mapAPs apRemapping
+
+        operateHoaAndParse debug intermediateFilesPath autfiltPath args hoaOutputputParser hoaString
+
+    let operateHoaToDPA
+        (debug : bool)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (operations : list<string>)
+        (ef : Effort)
+        (apRemapping : string -> 'L)
+        (hoaString : string)
+        =
+
+        let args =
+            [ "--small"; "--" + Effort.asString ef; "-D"; "-C"; "-S"; "-p\"max even\"" ]
+            @ operations
+            |> String.concat " "
+
+        let hoaOutputputParser c =
+            c |> HoaConversion.resultToDPA |> DPA.mapAPs apRemapping
+
+        operateHoaAndParse debug intermediateFilesPath autfiltPath args hoaOutputputParser hoaString
+
+    let operateHoaToNPA
+        (debug : bool)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (operations : list<string>)
+        (ef : Effort)
+        (apRemapping : string -> 'L)
+        (hoaString : string)
+        =
+
+        let args =
+            [ "--small"; "--" + Effort.asString ef; "-S"; "-p\"max even\"" ] @ operations
+            |> String.concat " "
+
+        let hoaOutputputParser c =
+            c |> HoaConversion.resultToNPA |> NPA.mapAPs apRemapping
+
+        operateHoaAndParse debug intermediateFilesPath autfiltPath args hoaOutputputParser hoaString
+
+    let operateHoaToNSA
+        (debug : bool)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (operations : list<string>)
+        (ef : Effort)
+        (apRemapping : string -> 'L)
+        (hoaString : string)
+        =
+
+        let args =
+            [ "--small"; "--" + Effort.asString ef; "-M" ] @ operations |> String.concat " "
+
+        let hoaOutputputParser c =
+            c |> HoaConversion.resultToNSA |> NSA.mapAPs apRemapping
+
+        operateHoaAndParse debug intermediateFilesPath autfiltPath args hoaOutputputParser hoaString
+
+
+    // ==================== Operate on pairs of automata ====================
+
+    let operateHoaPairToGNBA
+        (debug : bool)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (operations : list<string>)
+        (opp : string)
+        (ef : Effort)
+        (apRemapping : string -> 'L)
+        (hoaString1 : string)
+        (hoaString2 : string)
+        =
+
+        let args =
+            [ "--small"; "--" + Effort.asString ef; "-S"; "--gba" ] @ operations
+            |> String.concat " "
+
+        let hoaOutputputParser c =
+            c |> HoaConversion.resultToGNBA |> GNBA.mapAPs apRemapping
+
+        operateHoaAndParsePair debug intermediateFilesPath autfiltPath args opp hoaOutputputParser hoaString1 hoaString2
+
+    // ==================== Operate on LTL formulas to  ====================
+
+    let operateLTLAndParse
+        (debug : bool)
+        (intermediateFilesPath : string)
+        (ltl2tgbaPath : string)
+        (args : string)
+        (outputputParser : string -> 'L)
+        (formula : string)
         =
         try
-            let dict, revDict =
-                aut.Skeleton.APs
-                |> List.mapi (fun i x ->
-                    let a = "l" + string i
-                    (x, a), (a, x)
-                )
-                |> List.unzip
-                |> fun (x, y) -> Map.ofList x, Map.ofList y
-
-            let s = aut.ToHoaString string (fun x -> dict.[x])
-
-            let path = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
             let targetPath = Path.Combine [| intermediateFilesPath; "autRes.hoa" |]
 
-            File.WriteAllText(path, s)
+            let arg = args + " " + $"\"{formula}\"" + " -o " + targetPath
 
-            let arg =
-                "--small --"
-                + Effort.asString ef
-                + " -D -C -S -p\"max even\" "
-                + path
-                + " -o "
-                + targetPath
-
-            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess Map.empty ltl2tgbaPath arg
 
             match res with
-            | { ExitCode = 0; Stderr = "" } ->
-                let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToDPA c (fun x -> revDict.[x]) |> Success
+            | { ExitCode = 0; Stderr = "" } -> File.ReadAllText(targetPath) |> outputputParser |> Success
             | { ExitCode = exitCode; Stderr = stderr } ->
                 if exitCode <> 0 then
                     raise
                     <| ConversionException
                         {
                             Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (convert, DPA); %i{exitCode}"
+                            DebugInfo = $"Unexpected exit code by spot: %i{exitCode}"
                         }
                 else
                     raise
                     <| ConversionException
                         {
                             Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (convert, DPA); %s{stderr}"
+                            DebugInfo = $"Error by spot: %s{stderr}"
                         }
+
         with
         | _ when debug -> reraise ()
-        | ConversionException err -> Fail(err)
+        | ConversionException err -> Fail err
         | e ->
             Fail
                 {
                     Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (convert, DPA); %s{e.Message}"
-                }
-
-    let convertToNPA
-        (debug : bool)
-        (intermediateFilesPath : String)
-        (autfiltPath : String)
-        (ef : Effort)
-        (aut : AbstractAutomaton<int, 'L>)
-        =
-        try
-            let dict, revDict =
-                aut.Skeleton.APs
-                |> List.mapi (fun i x ->
-                    let a = "l" + string i
-                    (x, a), (a, x)
-                )
-                |> List.unzip
-                |> fun (x, y) -> Map.ofList x, Map.ofList y
-
-            let s = aut.ToHoaString string (fun x -> dict.[x])
-
-            let path = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
-            let targetPath = Path.Combine [| intermediateFilesPath; "autRes.hoa" |]
-
-            File.WriteAllText(path, s)
-
-            let arg =
-                "--small --"
-                + Effort.asString ef
-                + " -S -p\"max even\" "
-                + path
-                + " -o "
-                + targetPath
-
-            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
-
-            match res with
-            | { ExitCode = 0; Stderr = "" } ->
-                let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToNPA c (fun x -> revDict.[x]) |> Success
-            | { ExitCode = exitCode; Stderr = stderr } ->
-                if exitCode <> 0 then
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (convert, NPA); %i{exitCode}"
-                        }
-                else
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (convert, NPA); %s{stderr}"
-                        }
-        with
-        | _ when debug -> reraise ()
-        | ConversionException err -> Fail(err)
-        | e ->
-            Fail
-                {
-                    Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (convert, NPA); %s{e.Message}"
-                }
-
-    let convertToNSA
-        (debug : bool)
-        (intermediateFilesPath : String)
-        (autfiltPath : String)
-        (ef : Effort)
-        (aut : AbstractAutomaton<int, 'L>)
-        =
-        try
-            let dict, revDict =
-                aut.Skeleton.APs
-                |> List.mapi (fun i x ->
-                    let a = "l" + string i
-                    (x, a), (a, x)
-                )
-                |> List.unzip
-                |> fun (x, y) -> Map.ofList x, Map.ofList y
-
-            let s = aut.ToHoaString string (fun x -> dict.[x])
-
-            let path = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
-            let targetPath = Path.Combine [| intermediateFilesPath; "autRes.hoa" |]
-
-            File.WriteAllText(path, s)
-
-            let arg = "--small --" + Effort.asString ef + " -M " + path + " -o " + targetPath
-
-            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
-
-            match res with
-            | { ExitCode = 0; Stderr = "" } ->
-                let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToNSA c (fun x -> revDict.[x]) |> Success
-            | { ExitCode = exitCode; Stderr = stderr } ->
-                if exitCode <> 0 then
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (convert, NSA); %i{exitCode}"
-                        }
-                else
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (convert, NSA); %s{stderr}"
-                        }
-        with
-        | _ when debug -> reraise ()
-        | ConversionException err -> Fail(err)
-        | e ->
-            Fail
-                {
-                    Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (convert, NSA); %s{e.Message}"
+                    DebugInfo = $"Unexpected error: %s{e.Message}"
                 }
 
 
-module AutomatonFromString =
+module AutomatonFromHoaString =
     let convertHoaStringToGNBA
         (debug : bool)
-        (intermediateFilesPath : String)
-        (autfiltPath : String)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
         (ef : Effort)
-        (autString : String)
+        (hoaString : string)
         =
-        try
-            let path = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
-            let targetPath = Path.Combine [| intermediateFilesPath; "autRes.hoa" |]
 
-            File.WriteAllText(path, autString)
-
-            let arg =
-                "--small --" + Effort.asString ef + " -S --gba " + path + " -o " + targetPath
-
-            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
-
-            match res with
-            | { ExitCode = 0; Stderr = "" } ->
-                let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToGNBA c id |> Success
-            | { ExitCode = exitCode; Stderr = stderr } ->
-                if exitCode <> 0 then
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (convert, GNBA, string); %i{exitCode}"
-                        }
-                else
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (convert, GNBA, string); %s{stderr}"
-                        }
-
-        with
-        | _ when debug -> reraise ()
-        | ConversionException err -> Fail(err)
-        | e ->
-            Fail
-                {
-                    Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (convert, GNBA, string); %s{e.Message}"
-                }
+        AutomataUtil.operateHoaToGNBA debug intermediateFilesPath autfiltPath [] ef id hoaString
 
     let convertHoaStringToNBA
         (debug : bool)
-        (intermediateFilesPath : String)
-        (autfiltPath : String)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
         (ef : Effort)
-        (autString : String)
+        (hoaString : string)
         =
-        try
-            let path = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
-            let targetPath = Path.Combine [| intermediateFilesPath; "autRes.hoa" |]
 
-            File.WriteAllText(path, autString)
-
-            let arg = "--small --" + Effort.asString ef + " -S -B " + path + " -o " + targetPath
-
-            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
-
-            match res with
-            | { ExitCode = 0; Stderr = "" } ->
-                let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToNBA c id |> Success
-            | { ExitCode = exitCode; Stderr = stderr } ->
-                if exitCode <> 0 then
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (convert, NBA, string); %i{exitCode}"
-                        }
-                else
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (convert, NBA, string); %s{stderr}"
-                        }
-        with
-        | _ when debug -> reraise ()
-        | ConversionException err -> Fail(err)
-        | e ->
-            Fail
-                {
-                    Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (convert, NBA, string); %s{e.Message}"
-                }
+        AutomataUtil.operateHoaToNBA debug intermediateFilesPath autfiltPath [] ef id hoaString
 
     let convertHoaStringToDPA
         (debug : bool)
-        (intermediateFilesPath : String)
-        (autfiltPath : String)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
         (ef : Effort)
-        (autString : String)
+        (hoaString : string)
         =
-        try
-            let path = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
-            let targetPath = Path.Combine [| intermediateFilesPath; "autRes.hoa" |]
 
-            File.WriteAllText(path, autString)
+        AutomataUtil.operateHoaToDPA debug intermediateFilesPath autfiltPath [] ef id hoaString
 
-            let arg =
-                "--small --"
-                + Effort.asString ef
-                + " -D -C -S -p\"max even\" "
-                + path
-                + " -o "
-                + targetPath
+    let convertHoaStringToNPA
+        (debug : bool)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (ef : Effort)
+        (hoaString : string)
+        =
 
-            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
+        AutomataUtil.operateHoaToNPA debug intermediateFilesPath autfiltPath [] ef id hoaString
 
-            match res with
-            | { ExitCode = 0; Stderr = "" } ->
-                let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToDPA c id |> Success
-            | { ExitCode = exitCode; Stderr = stderr } ->
-                if exitCode <> 0 then
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (convert, DPA, string); %i{exitCode}"
-                        }
-                else
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (convert, DPA, string); %s{stderr}"
-                        }
-        with
-        | _ when debug -> reraise ()
-        | ConversionException err -> Fail(err)
-        | e ->
-            Fail
-                {
-                    Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (convert, DPA, string); %s{e.Message}"
-                }
+    let convertHoaStringToNSA
+        (debug : bool)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (ef : Effort)
+        (hoaString : string)
+        =
+
+        AutomataUtil.operateHoaToNSA debug intermediateFilesPath autfiltPath [] ef id hoaString
+
+
+module AutomatonConversions =
+    let convertToGNBA
+        (debug : bool)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (ef : Effort)
+        (aut : AbstractAutomaton<int, 'L>)
+        =
+        let hoaString, revDict = AutomataUtil.stringifyAutomaton aut
+        AutomataUtil.operateHoaToGNBA debug intermediateFilesPath autfiltPath [] ef (fun x -> revDict.[x]) hoaString
+
+    let convertToNBA
+        (debug : bool)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (ef : Effort)
+        (aut : AbstractAutomaton<int, 'L>)
+        =
+
+        let hoaString, revDict = AutomataUtil.stringifyAutomaton aut
+        AutomataUtil.operateHoaToNBA debug intermediateFilesPath autfiltPath [] ef (fun x -> revDict.[x]) hoaString
+
+    let convertToDPA
+        (debug : bool)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (ef : Effort)
+        (aut : AbstractAutomaton<int, 'L>)
+        =
+
+        let hoaString, revDict = AutomataUtil.stringifyAutomaton aut
+        AutomataUtil.operateHoaToDPA debug intermediateFilesPath autfiltPath [] ef (fun x -> revDict.[x]) hoaString
+
+
+    let convertToNPA
+        (debug : bool)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (ef : Effort)
+        (aut : AbstractAutomaton<int, 'L>)
+        =
+
+        let hoaString, revDict = AutomataUtil.stringifyAutomaton aut
+        AutomataUtil.operateHoaToNPA debug intermediateFilesPath autfiltPath [] ef (fun x -> revDict.[x]) hoaString
+
+
+    let convertToNSA
+        (debug : bool)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (ef : Effort)
+        (aut : AbstractAutomaton<int, 'L>)
+        =
+
+        let hoaString, revDict = AutomataUtil.stringifyAutomaton aut
+        AutomataUtil.operateHoaToNSA debug intermediateFilesPath autfiltPath [] ef (fun x -> revDict.[x]) hoaString
+
 
 
 module AutomataOperations =
     let complementToGNBA
         debug
-        (intermediateFilesPath : String)
-        (autfiltPath : String)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
         (ef : Effort)
         (aut : AbstractAutomaton<int, 'L>)
         =
-        try
-            let dict, revDict =
-                aut.Skeleton.APs
-                |> List.mapi (fun i x ->
-                    let a = "l" + string i
-                    (x, a), (a, x)
-                )
-                |> List.unzip
-                |> fun (x, y) -> Map.ofList x, Map.ofList y
 
-            let s = aut.ToHoaString string (fun x -> dict.[x])
+        let hoaString, revDict = AutomataUtil.stringifyAutomaton aut
 
-            let path = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
-            let targetPath = Path.Combine [| intermediateFilesPath; "autRes.hoa" |]
+        AutomataUtil.operateHoaToGNBA
+            debug
+            intermediateFilesPath
+            autfiltPath
+            [ "--complement" ]
+            ef
+            (fun x -> revDict.[x])
+            hoaString
 
-            File.WriteAllText(path, s)
-
-            let arg =
-                "--small --"
-                + Effort.asString ef
-                + " -S --gba --complement "
-                + path
-                + " -o "
-                + targetPath
-
-            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
-
-            match res with
-            | { ExitCode = 0; Stderr = "" } ->
-                let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToGNBA c (fun x -> revDict.[x]) |> Success
-            | { ExitCode = exitCode; Stderr = stderr } ->
-                if exitCode <> 0 then
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (complement, GNBA); %i{exitCode}"
-                        }
-                else
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (complement, GNBA); %s{stderr}"
-                        }
-        with
-        | _ when debug -> reraise ()
-        | ConversionException err -> Fail(err)
-        | e ->
-            Fail
-                {
-                    Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (complement, GNBA); %s{e.Message}"
-                }
 
     let complementToNBA
         debug
-        (intermediateFilesPath : String)
-        (autfiltPath : String)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
         (ef : Effort)
         (aut : AbstractAutomaton<int, 'L>)
         =
-        try
-            let dict, revDict =
-                aut.Skeleton.APs
-                |> List.mapi (fun i x ->
-                    let a = "l" + string i
-                    (x, a), (a, x)
-                )
-                |> List.unzip
-                |> fun (x, y) -> Map.ofList x, Map.ofList y
 
-            let s = aut.ToHoaString string (fun x -> dict.[x])
+        let hoaString, revDict = AutomataUtil.stringifyAutomaton aut
 
-            let path = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
-            let targetPath = Path.Combine [| intermediateFilesPath; "autRes.hoa" |]
+        AutomataUtil.operateHoaToNBA
+            debug
+            intermediateFilesPath
+            autfiltPath
+            [ "--complement" ]
+            ef
+            (fun x -> revDict.[x])
+            hoaString
 
-            File.WriteAllText(path, s)
+    let complementToDPA
+        debug
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (ef : Effort)
+        (aut : AbstractAutomaton<int, 'L>)
+        =
 
-            let arg =
-                "--small --"
-                + Effort.asString ef
-                + " -S -B --complement "
-                + path
-                + " -o "
-                + targetPath
+        let hoaString, revDict = AutomataUtil.stringifyAutomaton aut
 
-            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
+        AutomataUtil.operateHoaToDPA
+            debug
+            intermediateFilesPath
+            autfiltPath
+            [ "--complement" ]
+            ef
+            (fun x -> revDict.[x])
+            hoaString
 
-            match res with
-            | { ExitCode = 0; Stderr = "" } ->
-                let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToNBA c (fun x -> revDict.[x]) |> Success
-            | { ExitCode = exitCode; Stderr = stderr } ->
-                if exitCode <> 0 then
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (complement, NBA); %i{exitCode}"
-                        }
-                else
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (complement, NBA); %s{stderr}"
-                        }
+    let complementToNPA
+        debug
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (ef : Effort)
+        (aut : AbstractAutomaton<int, 'L>)
+        =
 
-        with
-        | _ when debug -> reraise ()
-        | ConversionException err -> Fail(err)
-        | e ->
-            Fail
-                {
-                    Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (complement, NBA); %s{e.Message}"
-                }
+        let hoaString, revDict = AutomataUtil.stringifyAutomaton aut
+
+        AutomataUtil.operateHoaToNPA
+            debug
+            intermediateFilesPath
+            autfiltPath
+            [ "--complement" ]
+            ef
+            (fun x -> revDict.[x])
+            hoaString
+
+    let complementToNSA
+        debug
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (ef : Effort)
+        (aut : AbstractAutomaton<int, 'L>)
+        =
+
+        let hoaString, revDict = AutomataUtil.stringifyAutomaton aut
+
+        AutomataUtil.operateHoaToNSA
+            debug
+            intermediateFilesPath
+            autfiltPath
+            [ "--complement" ]
+            ef
+            (fun x -> revDict.[x])
+            hoaString
+
 
     let unionToGNBA
         debug
-        (intermediateFilesPath : String)
-        (autfiltPath : String)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
         (ef : Effort)
         (aut1 : AbstractAutomaton<int, 'L>)
         (aut2 : AbstractAutomaton<int, 'L>)
         =
-        try
-            let dict, revDict =
-                aut1.Skeleton.APs @ aut2.Skeleton.APs
-                |> List.distinct
-                |> List.mapi (fun i x ->
-                    let a = "l" + string i
-                    (x, a), (a, x)
-                )
-                |> List.unzip
-                |> fun (x, y) -> Map.ofList x, Map.ofList y
 
-            let s1 = aut1.ToHoaString string (fun x -> dict.[x])
-            let s2 = aut2.ToHoaString string (fun x -> dict.[x])
+        let hoaString1, hoaString2, revDict = AutomataUtil.stringifyAutomatonPair aut1 aut2
 
-            let path1 = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
-            let path2 = Path.Combine [| intermediateFilesPath; "aut2.hoa" |]
-            let targetPath = Path.Combine [| intermediateFilesPath; "autRes.hoa" |]
+        AutomataUtil.operateHoaPairToGNBA
+            debug
+            intermediateFilesPath
+            autfiltPath
+            []
+            "--product-or="
+            ef
+            (fun x -> revDict.[x])
+            hoaString1
+            hoaString2
 
-            File.WriteAllText(path1, s1)
-            File.WriteAllText(path2, s2)
-
-            let arg =
-                "--small --"
-                + Effort.asString ef
-                + " --product-or="
-                + path2
-                + " -S --gba "
-                + path1
-                + " -o "
-                + targetPath
-
-            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
-
-            match res with
-            | { ExitCode = 0; Stderr = "" } ->
-                let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToGNBA c (fun x -> revDict.[x]) |> Success
-            | { ExitCode = exitCode; Stderr = stderr } ->
-                if exitCode <> 0 then
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (union, GNBA); %i{exitCode}"
-                        }
-                else
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (union, GNBA); %s{stderr}"
-                        }
-        with
-        | _ when debug -> reraise ()
-        | ConversionException err -> Fail(err)
-        | e ->
-            Fail
-                {
-                    Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (union, GNBA); %s{e.Message}"
-                }
 
     let intersectToGNBA
         debug
-        (intermediateFilesPath : String)
-        (autfiltPath : String)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
         (ef : Effort)
         (aut1 : AbstractAutomaton<int, 'L>)
         (aut2 : AbstractAutomaton<int, 'L>)
         =
-        try
-            let dict, revDict =
-                aut1.Skeleton.APs @ aut2.Skeleton.APs
-                |> List.distinct
-                |> List.mapi (fun i x ->
-                    let a = "l" + string i
-                    (x, a), (a, x)
-                )
-                |> List.unzip
-                |> fun (x, y) -> Map.ofList x, Map.ofList y
 
-            let s1 = aut1.ToHoaString string (fun x -> dict.[x])
-            let s2 = aut2.ToHoaString string (fun x -> dict.[x])
+        let hoaString1, hoaString2, revDict = AutomataUtil.stringifyAutomatonPair aut1 aut2
 
-            let path1 = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
-            let path2 = Path.Combine [| intermediateFilesPath; "aut2.hoa" |]
-            let targetPath = Path.Combine [| intermediateFilesPath; "autRes.hoa" |]
+        AutomataUtil.operateHoaPairToGNBA
+            debug
+            intermediateFilesPath
+            autfiltPath
+            []
+            "--product="
+            ef
+            (fun x -> revDict.[x])
+            hoaString1
+            hoaString2
 
-            File.WriteAllText(path1, s1)
-            File.WriteAllText(path2, s2)
-
-            let arg =
-                "--small --"
-                + Effort.asString ef
-                + " --product="
-                + path2
-                + " -S --gba "
-                + path1
-                + " -o "
-                + targetPath
-
-            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
-
-            match res with
-            | { ExitCode = 0; Stderr = "" } ->
-                let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToGNBA c (fun x -> revDict.[x]) |> Success
-            | { ExitCode = exitCode; Stderr = stderr } ->
-                if exitCode <> 0 then
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (intersect, GNBA); %i{exitCode}"
-                        }
-                else
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (intersect, GNBA); %s{stderr}"
-                        }
-        with
-        | _ when debug -> reraise ()
-        | ConversionException err -> Fail(err)
-        | e ->
-            Fail
-                {
-                    Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (intersect, GNBA); %s{e.Message}"
-                }
 
 module LTLConversion =
 
-    let convertLTLtoGNBA debug (intermediateFilesPath : String) (ltl2tgbaPath : String) (ltl : LTL<'L>) =
-        try
-            let dict, revDict =
-                ltl
-                |> LTL.allAtoms
-                |> Set.toList
-                |> List.mapi (fun i x ->
-                    let a = "l" + string i
-                    (x, a), (a, x)
-                )
-                |> List.unzip
-                |> fun (x, y) -> Map.ofList x, Map.ofList y
+    let private stringifyLTL (ltl : LTL<'L>) =
+        let dict, revDict =
+            ltl
+            |> LTL.allAtoms
+            |> Set.toList
+            |> List.mapi (fun i x ->
+                let a = "l" + string i
+                (x, a), (a, x)
+            )
+            |> List.unzip
+            |> fun (x, y) -> Map.ofList x, Map.ofList y
 
-            let ltlAsString = ltl |> LTL.printInSpotFormat (fun x -> "\"" + dict.[x] + "\"")
+        let s = ltl |> LTL.printInSpotFormat (fun x -> "\"" + dict.[x] + "\"")
 
-            let targetPath = Path.Combine [| intermediateFilesPath; "autRes.hoa" |]
+        s, revDict
 
-            let args = "-S --gba \"" + ltlAsString + "\"" + " -o " + targetPath
+    let convertLTLtoGNBA debug (intermediateFilesPath : string) (ltl2tgbaPath : string) (ltl : LTL<'L>) =
+        let s, revDict = stringifyLTL ltl
 
-            let res = Util.SubprocessUtil.executeSubprocess ltl2tgbaPath args
+        let args = [ "-S"; "--gnba" ] |> String.concat " "
 
-            match res with
-            | { ExitCode = 0; Stderr = "" } ->
-                let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToGNBA c (fun x -> revDict.[x]) |> Success
-            | { ExitCode = exitCode; Stderr = stderr } ->
-                if exitCode <> 0 then
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (LTL, GNBA); %i{exitCode}"
-                        }
-                else
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (LTL, GNBA); %s{stderr}"
-                        }
-        with
-        | _ when debug -> reraise ()
-        | ConversionException err -> Fail(err)
-        | e ->
-            Fail
-                {
-                    Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (LTL, GNBA); %s{e.Message}"
-                }
+        let hoaOutputputParser c =
+            c |> HoaConversion.resultToGNBA |> GNBA.mapAPs (fun x -> revDict.[x])
 
-    let convertLTLtoNBA debug (intermediateFilesPath : String) (ltl2tgbaPath : String) (ltl : LTL<'L>) =
-        try
-            let dict, revDict =
-                ltl
-                |> LTL.allAtoms
-                |> Set.toList
-                |> List.mapi (fun i x ->
-                    let a = "l" + string i
-                    (x, a), (a, x)
-                )
-                |> List.unzip
-                |> fun (x, y) -> Map.ofList x, Map.ofList y
+        AutomataUtil.operateLTLAndParse debug intermediateFilesPath ltl2tgbaPath args hoaOutputputParser s
 
-            let ltlAsString = ltl |> LTL.printInSpotFormat (fun x -> "\"" + dict.[x] + "\"")
 
-            let targetPath = Path.Combine [| intermediateFilesPath; "autRes.hoa" |]
+    let convertLTLtoNBA debug (intermediateFilesPath : string) (ltl2tgbaPath : string) (ltl : LTL<'L>) =
+        let s, revDict = stringifyLTL ltl
 
-            let args = "-S -B \"" + ltlAsString + "\"" + " -o " + targetPath
+        let args = [ "-S"; "-B" ] |> String.concat " "
 
-            let res = Util.SubprocessUtil.executeSubprocess ltl2tgbaPath args
+        let hoaOutputputParser c =
+            c |> HoaConversion.resultToNBA |> NBA.mapAPs (fun x -> revDict.[x])
 
-            match res with
-            | { ExitCode = 0; Stderr = "" } ->
-                let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToNBA c (fun x -> revDict.[x]) |> Success
-            | { ExitCode = exitCode; Stderr = stderr } ->
-                if exitCode <> 0 then
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (LTL, NBA); %i{exitCode}"
-                        }
-                else
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (ltl, NBA); %s{stderr}"
-                        }
-        with
-        | _ when debug -> reraise ()
-        | ConversionException err -> Fail(err)
-        | e ->
-            Fail
-                {
-                    Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (LTL, NBA); %s{e.Message}"
-                }
+        AutomataUtil.operateLTLAndParse debug intermediateFilesPath ltl2tgbaPath args hoaOutputputParser s
 
-    let convertLTLtoDPA debug (intermediateFilesPath : String) (ltl2tgbaPath : String) (ltl : LTL<'L>) =
-        try
-            let dict, revDict =
-                ltl
-                |> LTL.allAtoms
-                |> Set.toList
-                |> List.mapi (fun i x ->
-                    let a = "l" + string i
-                    (x, a), (a, x)
-                )
-                |> List.unzip
-                |> fun (x, y) -> Map.ofList x, Map.ofList y
 
-            let ltlAsString = ltl |> LTL.printInSpotFormat (fun x -> "\"" + dict.[x] + "\"")
 
-            let targetPath = Path.Combine [| intermediateFilesPath; "autRes.hoa" |]
+    let convertLTLtoDPA debug (intermediateFilesPath : string) (ltl2tgbaPath : string) (ltl : LTL<'L>) =
+        let s, revDict = stringifyLTL ltl
 
-            let args = "-S -C -D -p\"max even\" \"" + ltlAsString + "\"" + " -o " + targetPath
+        let args = [ "-S"; "-C"; "-D"; "-p\"max even\"" ] |> String.concat " "
 
-            let res = Util.SubprocessUtil.executeSubprocess ltl2tgbaPath args
+        let hoaOutputputParser c =
+            c |> HoaConversion.resultToDPA |> DPA.mapAPs (fun x -> revDict.[x])
 
-            match res with
-            | { ExitCode = 0; Stderr = "" } ->
-                let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToDPA c (fun x -> revDict.[x]) |> Success
-            | { ExitCode = exitCode; Stderr = stderr } ->
-                if exitCode <> 0 then
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (LTL, DPA); %i{exitCode}"
-                        }
-                else
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (ltl, DPA); %s{stderr}"
-                        }
-        with
-        | _ when debug -> reraise ()
-        | ConversionException err -> Fail(err)
-        | e ->
-            Fail
-                {
-                    Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (LTL, DPA); %s{e.Message}"
-                }
+        AutomataUtil.operateLTLAndParse debug intermediateFilesPath ltl2tgbaPath args hoaOutputputParser s
 
-    let convertLTLtoNSA debug (intermediateFilesPath : String) (ltl2tgbaPath : String) (ltl : LTL<'L>) =
-        try
-            let dict, revDict =
-                ltl
-                |> LTL.allAtoms
-                |> Set.toList
-                |> List.mapi (fun i x ->
-                    let a = "l" + string i
-                    (x, a), (a, x)
-                )
-                |> List.unzip
-                |> fun (x, y) -> Map.ofList x, Map.ofList y
+    let convertLTLtoNPA debug (intermediateFilesPath : string) (ltl2tgbaPath : string) (ltl : LTL<'L>) =
+        let s, revDict = stringifyLTL ltl
 
-            let ltlAsString = ltl |> LTL.printInSpotFormat (fun x -> "\"" + dict.[x] + "\"")
+        let args = [ "-S"; "-p\"max even\"" ] |> String.concat " "
 
-            let targetPath = Path.Combine [| intermediateFilesPath; "autRes.hoa" |]
+        let hoaOutputputParser c =
+            c |> HoaConversion.resultToNPA |> NPA.mapAPs (fun x -> revDict.[x])
 
-            let args = "-M \"" + ltlAsString + "\"" + " -o " + targetPath
+        AutomataUtil.operateLTLAndParse debug intermediateFilesPath ltl2tgbaPath args hoaOutputputParser s
 
-            let res = Util.SubprocessUtil.executeSubprocess ltl2tgbaPath args
 
-            match res with
-            | { ExitCode = 0; Stderr = "" } ->
-                let c = File.ReadAllText(targetPath)
-                HoaConversion.resultToNSA c (fun x -> revDict.[x]) |> Success
-            | { ExitCode = exitCode; Stderr = stderr } ->
-                if exitCode <> 0 then
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (LTL, NSA); %i{exitCode}"
-                        }
-                else
-                    raise
-                    <| ConversionException
-                        {
-                            Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (ltl, NSA); %s{stderr}"
-                        }
-        with
-        | _ when debug -> reraise ()
-        | ConversionException err -> Fail(err)
-        | e ->
-            Fail
-                {
-                    Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (LTL, NSA); %s{e.Message}"
-                }
+    let convertLTLtoNSA debug (intermediateFilesPath : string) (ltl2tgbaPath : string) (ltl : LTL<'L>) =
+        let s, revDict = stringifyLTL ltl
+
+        let args = [ "-M" ] |> String.concat " "
+
+        let hoaOutputputParser c =
+            c |> HoaConversion.resultToNSA |> NSA.mapAPs (fun x -> revDict.[x])
+
+        AutomataUtil.operateLTLAndParse debug intermediateFilesPath ltl2tgbaPath args hoaOutputputParser s
 
 
 module AutomataChecks =
-    let isEmpty debug (intermediateFilesPath : String) (autfiltPath : String) (aut : AbstractAutomaton<int, 'L>) =
+    let isEmpty debug (intermediateFilesPath : string) (autfiltPath : string) (aut : AbstractAutomaton<int, 'L>) =
         try
-            let dict =
-                aut.Skeleton.APs
-                |> List.mapi (fun i x ->
-                    let a = "l" + string i
-                    (x, a)
-                )
-                |> Map.ofList
-
-            let s = aut.ToHoaString string (fun x -> dict.[x])
+            let s, _ = AutomataUtil.stringifyAutomaton aut
 
             let path = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
             File.WriteAllText(path, s)
 
             let args = "--is-empty " + path
 
-            let res = Util.SubprocessUtil.executeSubprocess autfiltPath args
+            let res = Util.SubprocessUtil.executeSubprocess Map.empty autfiltPath args
 
             match res with
             | {
@@ -1329,14 +1019,14 @@ module AutomataChecks =
                     <| ConversionException
                         {
                             Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (emptiness); %i{exitCode}"
+                            DebugInfo = $"Unexpected exit code by spot: %i{exitCode}"
                         }
                 else
                     raise
                     <| ConversionException
                         {
                             Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (emptiness); %s{stderr}"
+                            DebugInfo = $"Error by spot: %s{stderr}"
                         }
         with
         | _ when debug -> reraise ()
@@ -1345,28 +1035,18 @@ module AutomataChecks =
             Fail
                 {
                     Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (emptiness); %s{e.Message}"
+                    DebugInfo = $"Unexpected error: %s{e.Message}"
                 }
 
     let isContained
         debug
-        (intermediateFilesPath : String)
-        (autfiltPath : String)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
         (aut1 : AbstractAutomaton<int, 'L>)
         (aut2 : AbstractAutomaton<int, 'L>)
         =
         try
-            let dict =
-                aut1.Skeleton.APs @ aut2.Skeleton.APs
-                |> List.distinct
-                |> List.mapi (fun i x ->
-                    let a = "l" + string i
-                    (x, a)
-                )
-                |> Map.ofList
-
-            let s1 = aut1.ToHoaString string (fun x -> dict.[x])
-            let s2 = aut2.ToHoaString string (fun x -> dict.[x])
+            let s1, s2, _ = AutomataUtil.stringifyAutomatonPair aut1 aut2
 
             let path1 = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
             let path2 = Path.Combine [| intermediateFilesPath; "aut2.hoa" |]
@@ -1375,7 +1055,7 @@ module AutomataChecks =
             File.WriteAllText(path2, s2)
 
             let arg = "--included-in=" + path2 + " " + path1
-            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess Map.empty autfiltPath arg
 
             match res with
             | {
@@ -1396,14 +1076,14 @@ module AutomataChecks =
                     <| ConversionException
                         {
                             Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (containment); %i{exitCode}"
+                            DebugInfo = $"Unexpected exit code by spot: %i{exitCode}"
                         }
                 else
                     raise
                     <| ConversionException
                         {
                             Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (containment); %s{stderr}"
+                            DebugInfo = $"Error by spot: %s{stderr}"
                         }
         with
         | _ when debug -> reraise ()
@@ -1412,28 +1092,18 @@ module AutomataChecks =
             Fail
                 {
                     Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (containment); %s{e.Message}"
+                    DebugInfo = $"Unexpected error: %s{e.Message}"
                 }
 
     let isEquivalent
         debug
-        (intermediateFilesPath : String)
-        (autfiltPath : String)
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
         (aut1 : AbstractAutomaton<int, 'L>)
         (aut2 : AbstractAutomaton<int, 'L>)
         =
         try
-            let dict =
-                aut1.Skeleton.APs @ aut2.Skeleton.APs
-                |> List.distinct
-                |> List.mapi (fun i x ->
-                    let a = "l" + string i
-                    (x, a)
-                )
-                |> Map.ofList
-
-            let s1 = aut1.ToHoaString string (fun x -> dict.[x])
-            let s2 = aut2.ToHoaString string (fun x -> dict.[x])
+            let s1, s2, _ = AutomataUtil.stringifyAutomatonPair aut1 aut2
 
             let path1 = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
             let path2 = Path.Combine [| intermediateFilesPath; "aut2.hoa" |]
@@ -1442,7 +1112,7 @@ module AutomataChecks =
             File.WriteAllText(path2, s2)
 
             let arg = "--equivalent-to=" + path2 + " " + path1
-            let res = Util.SubprocessUtil.executeSubprocess autfiltPath arg
+            let res = Util.SubprocessUtil.executeSubprocess Map.empty autfiltPath arg
 
             match res with
             | {
@@ -1463,14 +1133,14 @@ module AutomataChecks =
                     <| ConversionException
                         {
                             Info = $"Unexpected exit code by spot"
-                            DebugInfo = $"Unexpected exit code by spot;  (equivalence); %i{exitCode}"
+                            DebugInfo = $"Unexpected exit code by spot: %i{exitCode}"
                         }
                 else
                     raise
                     <| ConversionException
                         {
                             Info = $"Error by spot"
-                            DebugInfo = $"Error by spot; (equivalence); %s{stderr}"
+                            DebugInfo = $"Error by spot: %s{stderr}"
                         }
         with
         | _ when debug -> reraise ()
@@ -1479,5 +1149,5 @@ module AutomataChecks =
             Fail
                 {
                     Info = $"Unexpected error"
-                    DebugInfo = $"Unexpected error; (equivalence); %s{e.Message}"
+                    DebugInfo = $"Unexpected error: %s{e.Message}"
                 }

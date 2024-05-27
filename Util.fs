@@ -44,13 +44,16 @@ module SubprocessUtil =
             ExitCode : int
         }
 
-    let executeSubprocess (cmd : string) (arg : string) =
+    let executeSubprocess (envVariables : Map<string, string>) (cmd : string) (arg : string) =
         let psi = System.Diagnostics.ProcessStartInfo(cmd, arg)
 
         psi.UseShellExecute <- false
         psi.RedirectStandardOutput <- true
         psi.RedirectStandardError <- true
         psi.CreateNoWindow <- true
+
+        for (var, v) in Map.toSeq envVariables do 
+            psi.Environment.Add(var, v)
 
         let p = System.Diagnostics.Process.Start(psi)
         let output = System.Text.StringBuilder()
