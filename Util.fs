@@ -39,8 +39,8 @@ module SubprocessUtil =
 
     type SubprocessResult =
         {
-            Stdout : String
-            Stderr : String
+            Stdout : string
+            Stderr : string
             ExitCode : int
         }
 

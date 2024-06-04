@@ -1095,6 +1095,70 @@ module AutomataChecks =
                     DebugInfo = $"Unexpected error: %s{e.Message}"
                 }
 
+    /// Check inclusion using spot's FORQ (only possible with spot version 2.12 or later)
+    let isContainedForq
+        debug
+        (intermediateFilesPath : string)
+        (autfiltPath : string)
+        (aut1 : AbstractAutomaton<int, 'L>)
+        (aut2 : AbstractAutomaton<int, 'L>)
+        =
+        try
+            let s1, s2, _ = AutomataUtil.stringifyAutomatonPair aut1 aut2
+
+            let path1 = Path.Combine [| intermediateFilesPath; "aut1.hoa" |]
+            let path2 = Path.Combine [| intermediateFilesPath; "aut2.hoa" |]
+
+            File.WriteAllText(path1, s1)
+            File.WriteAllText(path2, s2)
+
+            let arg = "--included-in=" + path2 + " " + path1
+
+            let res =
+                Util.SubprocessUtil.executeSubprocess
+                    ([ "SPOT_CONTAINMENT_CHECK", "forq" ] |> Map.ofList)
+                    autfiltPath
+                    arg
+
+            match res with
+            | {
+                  ExitCode = 0
+                  Stderr = ""
+                  Stdout = c
+              }
+            | {
+                  ExitCode = 1
+                  Stderr = ""
+                  Stdout = c
+              } ->
+                if c = "" then false else true
+                |> Success
+            | { ExitCode = exitCode; Stderr = stderr } ->
+                if exitCode <> 0 && exitCode <> 1 then
+                    raise
+                    <| ConversionException
+                        {
+                            Info = $"Unexpected exit code by spot"
+                            DebugInfo = $"Unexpected exit code by spot: %i{exitCode}"
+                        }
+                else
+                    raise
+                    <| ConversionException
+                        {
+                            Info = $"Error by spot"
+                            DebugInfo = $"Error by spot: %s{stderr}"
+                        }
+        with
+        | _ when debug -> reraise ()
+        | ConversionException err -> Fail(err)
+        | e ->
+            Fail
+                {
+                    Info = $"Unexpected error"
+                    DebugInfo = $"Unexpected error: %s{e.Message}"
+                }
+
+
     let isEquivalent
         debug
         (intermediateFilesPath : string)
