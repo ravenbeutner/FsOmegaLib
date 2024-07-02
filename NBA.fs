@@ -24,7 +24,7 @@ open SAT
 open AutomatonSkeleton
 open AbstractAutomaton
 
-exception private NotWellFormedException of String
+exception private NotWellFormedException of string
 
 type NBA<'T, 'L when 'T : comparison and 'L : comparison> =
     {
@@ -67,7 +67,7 @@ type NBA<'T, 'L when 'T : comparison and 'L : comparison> =
             with NotWellFormedException msg ->
                 Some msg
 
-        member this.ToHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) =
+        member this.ToHoaString (stateStringer : 'T -> string) (alphStringer : 'L -> string) =
             let stringWriter = new StringWriter()
 
             stringWriter.WriteLine("HOA: v1")
@@ -150,7 +150,7 @@ module NBA =
             AcceptingStates = Set.empty
         }
 
-    let toHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) (nba : NBA<'T, 'L>) =
+    let toHoaString (stateStringer : 'T -> string) (alphStringer : 'L -> string) (nba : NBA<'T, 'L>) =
         (nba :> AbstractAutomaton<'T, 'L>).ToHoaString stateStringer alphStringer
 
     let findError (nba : NBA<'T, 'L>) =

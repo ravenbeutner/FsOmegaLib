@@ -27,7 +27,7 @@ open AbstractAutomaton
 open DPA
 open NBA
 
-exception private NotWellFormedException of String
+exception private NotWellFormedException of string
 
 type APA<'T, 'L when 'T : comparison and 'L : comparison> =
     {
@@ -70,7 +70,7 @@ type APA<'T, 'L when 'T : comparison and 'L : comparison> =
             with NotWellFormedException msg ->
                 Some msg
 
-        member this.ToHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) =
+        member this.ToHoaString (stateStringer : 'T -> string) (alphStringer : 'L -> string) =
             let stringWriter = new StringWriter()
 
             stringWriter.WriteLine("HOA: v1")
@@ -178,7 +178,7 @@ module APA =
             Color = [ (0, 1) ] |> Map.ofList
         }
 
-    let toHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) (apa : APA<'T, 'L>) =
+    let toHoaString (stateStringer : 'T -> string) (alphStringer : 'L -> string) (apa : APA<'T, 'L>) =
         (apa :> AbstractAutomaton<'T, 'L>).ToHoaString stateStringer alphStringer
 
     let findError (apa : APA<'T, 'L>) =

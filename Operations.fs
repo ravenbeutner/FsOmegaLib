@@ -936,7 +936,7 @@ module LTLConversion =
     let convertLTLtoGNBA debug (intermediateFilesPath : string) (ltl2tgbaPath : string) (ltl : LTL<'L>) =
         let s, revDict = stringifyLTL ltl
 
-        let args = [ "-S"; "--gnba" ] |> String.concat " "
+        let args = [ "-S" ] |> String.concat " "
 
         let hoaOutputputParser c =
             c |> HoaConversion.resultToGNBA |> GNBA.mapAPs (fun x -> revDict.[x])

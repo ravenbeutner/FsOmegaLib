@@ -51,7 +51,7 @@ type AutomatonHeader =
         Start : list<list<int>>
         APs : list<string>
         Acceptance : int * AcceptanceCondition
-        AcceptanceName : String
+        AcceptanceName : string
     }
 
 type AutomatonBody =
@@ -278,7 +278,7 @@ module Parser =
 
     let private hoaParser = tuple2 (headerParser .>> ws) (bodyParser)
 
-    exception private HoaParsingException of String
+    exception private HoaParsingException of string
 
     let parseHoaAutomaton (s : string) =
         try

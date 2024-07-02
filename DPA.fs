@@ -24,7 +24,7 @@ open SAT
 open AutomatonSkeleton
 open AbstractAutomaton
 
-exception private NotWellFormedException of String
+exception private NotWellFormedException of string
 
 type DPA<'T, 'L when 'T : comparison and 'L : comparison> =
     {
@@ -63,7 +63,7 @@ type DPA<'T, 'L when 'T : comparison and 'L : comparison> =
             with NotWellFormedException msg ->
                 Some msg
 
-        member this.ToHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) =
+        member this.ToHoaString (stateStringer : 'T -> string) (alphStringer : 'L -> string) =
             let stringWriter = new StringWriter()
 
             stringWriter.WriteLine("HOA: v1")
@@ -152,7 +152,7 @@ module DPA =
             Color = [ 0, 1 ] |> Map.ofList
         }
 
-    let toHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) (dpa : DPA<'T, 'L>) =
+    let toHoaString (stateStringer : 'T -> string) (alphStringer : 'L -> string) (dpa : DPA<'T, 'L>) =
         (dpa :> AbstractAutomaton<'T, 'L>).ToHoaString stateStringer alphStringer
 
     let findError (dpa : DPA<'T, 'L>) =

@@ -39,7 +39,7 @@ type LTL<'T when 'T : comparison> =
 
 module LTL =
 
-    let rec printInSpotFormat (varNames : 'T -> String) (formula : LTL<'T>) =
+    let rec printInSpotFormat (varNames : 'T -> string) (formula : LTL<'T>) =
         match formula with
         | Atom x -> varNames x
         | True -> "1"

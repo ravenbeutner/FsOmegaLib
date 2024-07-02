@@ -24,7 +24,7 @@ open SAT
 open AutomatonSkeleton
 open AbstractAutomaton
 
-exception private NotWellFormedException of String
+exception private NotWellFormedException of string
 
 type NPA<'T, 'L when 'T : comparison and 'L : comparison> =
     {
@@ -67,7 +67,7 @@ type NPA<'T, 'L when 'T : comparison and 'L : comparison> =
             with NotWellFormedException msg ->
                 Some msg
 
-        member this.ToHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) =
+        member this.ToHoaString (stateStringer : 'T -> string) (alphStringer : 'L -> string) =
             let stringWriter = new StringWriter()
 
             stringWriter.WriteLine("HOA: v1")
@@ -157,7 +157,7 @@ module NPA =
             Color = [ 0, 1 ] |> Map.ofList
         }
 
-    let toHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) (npa : NPA<'T, 'L>) =
+    let toHoaString (stateStringer : 'T -> string) (alphStringer : 'L -> string) (npa : NPA<'T, 'L>) =
         (npa :> AbstractAutomaton<'T, 'L>).ToHoaString stateStringer alphStringer
 
     let findError (npa : NPA<'T, 'L>) =

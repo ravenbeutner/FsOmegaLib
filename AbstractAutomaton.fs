@@ -21,6 +21,6 @@ open System
 open AutomatonSkeleton
 
 type AbstractAutomaton<'T, 'L when 'T : comparison and 'L : comparison> =
-    abstract member ToHoaString : stateToString : ('T -> String) -> apToString : ('L -> String) -> String
+    abstract member ToHoaString : stateToString : ('T -> string) -> apToString : ('L -> string) -> string
     abstract member FindError : unit -> Option<string>
     abstract member Skeleton : AlternatingAutomatonSkeleton<'T, 'L>

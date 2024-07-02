@@ -25,7 +25,7 @@ open SAT
 open AutomatonSkeleton
 open AbstractAutomaton
 
-exception private NotWellFormedException of String
+exception private NotWellFormedException of string
 
 type NSA<'T, 'L when 'T : comparison and 'L : comparison> =
     {
@@ -61,7 +61,7 @@ type NSA<'T, 'L when 'T : comparison and 'L : comparison> =
                 Some msg
 
 
-        member this.ToHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) =
+        member this.ToHoaString (stateStringer : 'T -> string) (alphStringer : 'L -> string) =
             let s = new StringWriter()
 
             s.WriteLine("HOA: v1")
@@ -147,7 +147,7 @@ module NSA =
             InitialStates = set ([ 0 ])
         }
 
-    let toHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) (nsa : NSA<'T, 'L>) =
+    let toHoaString (stateStringer : 'T -> string) (alphStringer : 'L -> string) (nsa : NSA<'T, 'L>) =
         (nsa :> AbstractAutomaton<'T, 'L>).ToHoaString stateStringer alphStringer
 
     let findError (nsa : NSA<'T, 'L>) =

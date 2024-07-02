@@ -24,7 +24,7 @@ open SAT
 open AutomatonSkeleton
 open AbstractAutomaton
 
-exception private NotWellFormedException of String
+exception private NotWellFormedException of string
 
 type GNBA<'T, 'L when 'T : comparison and 'L : comparison> =
     {
@@ -76,7 +76,7 @@ type GNBA<'T, 'L when 'T : comparison and 'L : comparison> =
                 Some msg
 
 
-        member this.ToHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) =
+        member this.ToHoaString (stateStringer : 'T -> string) (alphStringer : 'L -> string) =
             let stringWriter = new StringWriter()
 
             stringWriter.WriteLine("HOA: v1")
@@ -181,7 +181,7 @@ module GNBA =
             NumberOfAcceptingSets = 0
         }
 
-    let toHoaString (stateStringer : 'T -> String) (alphStringer : 'L -> String) (gnba : GNBA<'T, 'L>) =
+    let toHoaString (stateStringer : 'T -> string) (alphStringer : 'L -> string) (gnba : GNBA<'T, 'L>) =
         (gnba :> AbstractAutomaton<'T, 'L>).ToHoaString stateStringer alphStringer
 
     let findError (gnba : GNBA<'T, 'L>) =

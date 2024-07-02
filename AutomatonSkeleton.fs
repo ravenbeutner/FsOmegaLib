@@ -22,7 +22,7 @@ open System.IO
 
 open SAT
 
-exception private NotWellFormedException of String
+exception private NotWellFormedException of string
 
 type AutomatonSkeleton<'T, 'L, 'G when 'T : comparison and 'L : comparison> =
     {
