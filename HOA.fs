@@ -88,6 +88,23 @@ module Parser =
     let private wsNoNewline =
         spacesNoNewline >>. many (multilineCommentParser .>> spacesNoNewline) |>> ignore
 
+    let escapedStringParser : Parser<string, unit> =
+        let escapedCharParser : Parser<string, unit> =  
+            anyOf "\"\\/bfnrt"
+            |>> fun x -> 
+                match x with
+                | 'b' -> "\b"
+                | 'f' -> "\u000C"
+                | 'n' -> "\n"
+                | 'r' -> "\r"
+                | 't' -> "\t"
+                | c   -> string c
+
+        between
+            (pchar '"')
+            (pchar '"')
+            (stringsSepBy (manySatisfy (fun c -> c <> '"' && c <> '\\')) (pstring "\\" >>. escapedCharParser))
+    
     let private headerParser =
         let headerLineParser (header : IntermediateAutomatonHeader) =
 
@@ -258,12 +275,13 @@ module Parser =
         let stateParser =
             let stateHeadParser =
                 pstring "State:"
-                >>. pipe2
+                >>. pipe3
                     (ws >>. pint32 .>> ws)
+                    (opt escapedStringParser .>> ws)
                     ((between (skipChar '{' .>> ws) (skipChar '}') (many (pint32 .>> ws))
                       |>> fun x -> set x)
                      <|> (preturn Set.empty))
-                    (fun a b -> (a, b))
+                    (fun a _ b -> (a, b))
 
             pipe2 (stateHeadParser .>> ws) (many (edgeParser .>> ws)) (fun (id, c) y -> id, c, y)
 
